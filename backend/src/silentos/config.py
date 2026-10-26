@@ -22,6 +22,7 @@ class ApiConfig(BaseModel):
 class PathsConfig(BaseModel):
     data_dir: Path = Path("./data")
     models_dir: Path = Path("./models")
+    assets_dir: Path = Path("./models/assets")
     raw_dir: Path = Path("./data/raw")
     processed_dir: Path = Path("./data/processed")
     annotations_dir: Path = Path("./data/annotations")
@@ -35,6 +36,7 @@ class PathsConfig(BaseModel):
         return cls(
             data_dir=data,
             models_dir=root / "models",
+            assets_dir=root / "models" / "assets",
             raw_dir=data / "raw",
             processed_dir=data / "processed",
             annotations_dir=data / "annotations",

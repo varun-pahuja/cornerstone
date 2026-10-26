@@ -23,6 +23,7 @@ data/
 !data/**/README.md
 models/development/*
 models/deployment/*
+models/assets/*
 !models/**/README.md
 *.onnx
 *.tflite
