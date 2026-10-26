@@ -12,6 +12,8 @@ import psutil
 
 from .config import Settings
 from .database import Database
+from .camera import CameraManager
+from .registry import status_for
 from .schemas import (  # noqa: F401  (re-exported for routes)
     AppStatus,
     CameraState,
@@ -36,6 +38,7 @@ class Application:
         self.settings = settings
         self.settings.paths.ensure()
         self.db = Database(settings.paths.data_dir / "silentos.db")
+        self.camera = CameraManager()
         self.runtime_state = RuntimeState.STOPPED
         self.last_error: str | None = None
         self.frames_processed = 0
@@ -50,8 +53,8 @@ class Application:
             recognition_mode=RecognitionMode(self.settings.recognition.mode),
             camera_state=CameraState.DISCONNECTED,
             camera_provider=self.settings.camera.provider,
-            sign_model_status=ModelStatus.NOT_LOADED,
-            lip_model_status=ModelStatus.NOT_LOADED,
+            sign_model_status=status_for(self.settings.paths.models_dir, "sign"),
+            lip_model_status=status_for(self.settings.paths.models_dir, "lip"),
             speech_enabled=self.settings.output.speech_enabled,
             last_message=None,
             last_recognition=None,
@@ -178,10 +181,43 @@ class Application:
 
     def start_recognition(self) -> str | None:
         """Returns an error detail, or None on success."""
+        # Camera exists now (Phase 3); the pipeline needs trained models (Phase 5+).
+        from .registry import status_for as _sf
+        sign = _sf(self.settings.paths.models_dir, "sign")
+        lip = _sf(self.settings.paths.models_dir, "lip")
+        if sign.value == "NOT_TRAINED" and lip.value == "NOT_TRAINED":
+            return (
+                "No trained models on disk yet — sign/silent-lip training arrives "
+                "in Phases 5–6. Start the camera from Live Vision in the meantime."
+            )
         return (
-            "Recognition runtime not implemented yet (camera capture arrives in "
-            "Phase 3). No state change was made."
+            "Recognition pipeline not implemented yet (inference arrives in "
+            "Phases 5–7). No state change was made."
         )
+
+    def camera_kwargs(self) -> dict:
+        """Provider kwargs from current settings."""
+        cam = self.settings.camera
+        return {
+            "video_path": cam.video_path,
+            "device_index": cam.device_index,
+            "width": cam.target_width,
+            "height": cam.target_height,
+            "fps": cam.target_fps,
+        }
+
+    def start_camera(self) -> str | None:
+        """Start capture from the configured provider. Error detail or None."""
+        cam = self.settings.camera
+        return self.camera.start(cam.provider, **self.camera_kwargs())
+
+    def stop_camera(self) -> None:
+        self.camera.stop()
+
+    def shutdown(self) -> None:
+        """Lifespan teardown: release camera and close DB."""
+        self.camera.stop()
+        self.db.close()
 
     def stop_recognition(self) -> str | None:
         return None  # already STOPPED; stopping a stopped runtime is a no-op

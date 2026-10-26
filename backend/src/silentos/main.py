@@ -14,16 +14,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__
-from .api.routes import (
-    camera,
-    datasets,
-    diagnostics,
-    health,
-    models,
-    recognition,
-    settings,
-    training,
-)
+from .api.routes.camera import router as camera_router
+from .api.routes.datasets import router as datasets_router
+from .api.routes.diagnostics import router as diagnostics_router
+from .api.routes.health import router as health_router
+from .api.routes.models import router as models_router
+from .api.routes.recognition import router as recognition_router
+from .api.routes.settings import router as settings_router
+from .api.routes.training import router as training_router
 from .application import Application
 from .config import Settings, load_settings
 
@@ -40,6 +38,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info("SilentOS %s starting (env=%s)", __version__, settings.app.env)
         yield
+        app.state.application.shutdown()
         logger.info("SilentOS shutdown complete")
 
     app = FastAPI(
@@ -61,14 +60,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
     app.state.application = Application(settings)
-    app.include_router(health.router)
-    app.include_router(settings.router)
-    app.include_router(models.router)
-    app.include_router(recognition.router)
-    app.include_router(camera.router)
-    app.include_router(datasets.router)
-    app.include_router(training.router)
-    app.include_router(diagnostics.router)
+    app.include_router(health_router)
+    app.include_router(settings_router)
+    app.include_router(models_router)
+    app.include_router(recognition_router)
+    app.include_router(camera_router)
+    app.include_router(datasets_router)
+    app.include_router(training_router)
+    app.include_router(diagnostics_router)
     return app
 
 

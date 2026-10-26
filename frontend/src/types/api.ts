@@ -58,6 +58,8 @@ export interface CameraInfo {
   provider: string;
   label: string;
   device_path: string | null;
+  available: boolean;
+  detail: string | null;
   connected: boolean;
   width: number | null;
   height: number | null;
@@ -86,4 +88,123 @@ export interface ModelInfo {
   preprocessing_version: string | null;
   evaluation: Record<string, unknown> | null;
   error: string | null;
+}
+
+// ---- Phase 2 additions ----
+
+export interface SettingsView {
+  recognition_mode: RecognitionMode;
+  min_confidence: number;
+  sign_threshold: number;
+  lip_threshold: number;
+  allow_single_modality: boolean;
+  speech_enabled: boolean;
+  speech_cooldown_ms: number;
+  history_retention_days: number;
+  history_max_entries: number;
+  camera_provider: string;
+  camera_target_width: number;
+  camera_target_height: number;
+  camera_target_fps: number;
+  camera_video_path: string | null;
+  camera_device_index: number;
+  vocabulary: string[];
+  abstain_label: string;
+  requires_restart: string[];
+}
+
+export interface SettingsUpdate {
+  recognition_mode?: RecognitionMode;
+  min_confidence?: number;
+  sign_threshold?: number;
+  lip_threshold?: number;
+  allow_single_modality?: boolean;
+  speech_enabled?: boolean;
+  speech_cooldown_ms?: number;
+  history_retention_days?: number;
+  history_max_entries?: number;
+  camera_provider?: string;
+  camera_target_width?: number;
+  camera_target_height?: number;
+  camera_target_fps?: number;
+  camera_video_path?: string | null;
+  camera_device_index?: number;
+}
+
+export interface ModelRegistryStatus {
+  models: ModelInfo[];
+  sign_status: ModelStatus;
+  lip_status: ModelStatus;
+}
+
+export interface DatasetSummary {
+  dataset_id: string;
+  name: string;
+  clip_count: number;
+  path: string;
+}
+
+export interface DatasetStats {
+  total_clips: number;
+  raw_video_files: number;
+  manifests: number;
+  by_class: Record<string, number>;
+  by_modality: Record<string, number>;
+}
+
+export interface TrainingJobInfo {
+  id: number;
+  created_at: string;
+  modality: string;
+  dataset: string;
+  status: string;
+  progress: number;
+  current_epoch: number;
+  total_epochs: number;
+  metrics: Record<string, unknown> | null;
+  error: string | null;
+}
+
+export interface DependencyCheck {
+  name: string;
+  kind: "python" | "binary";
+  available: boolean;
+  version: string | null;
+  required_for: string;
+}
+
+export interface DiagnosticsReport {
+  dependencies: DependencyCheck[];
+  offline_ok: boolean;
+  notes: string[];
+  timestamp: string;
+}
+
+export interface HistoryItem {
+  id: number;
+  timestamp: string;
+  mode: string;
+  sign_label: string | null;
+  sign_confidence: number | null;
+  lip_label: string | null;
+  lip_confidence: number | null;
+  final_label: string;
+  accepted: boolean;
+  reason: string;
+  latency_ms: number | null;
+}
+
+export interface HistoryPage {
+  items: HistoryItem[];
+  total: number;
+}
+
+export interface RecognitionStatus {
+  runtime_state: RuntimeState;
+  mode: RecognitionMode;
+  sign_model: ModelStatus;
+  lip_model: ModelStatus;
+  frames_processed: number;
+  last_decision: Record<string, unknown> | null;
+  latency_ms: number | null;
 }

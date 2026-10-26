@@ -6,28 +6,17 @@ arrives in Phase 3 — start/stop report that honestly instead of pretending.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastapi import APIRouter, HTTPException
 
+from ...camera import discover_v4l2
 from ...schemas import CameraConfigUpdate, CameraInfo, CameraStatus, CameraState, SettingsView
 from ..deps import AppDep
 
-router = APIRouter(prefix="/api/v1/camera", tags=["camera"])
-
-_SYS_VIDEO = Path("/sys/class/video4linux")
-
+# Spec §8.2: list lives at /cameras, everything else under /camera/*
+router = APIRouter(prefix="/api/v1", tags=["camera"])
 
 def _v4l2_devices() -> list[tuple[str, str]]:
-    """Return [(device_path, name)] for real V4L2 nodes, empty when absent."""
-    if not _SYS_VIDEO.is_dir():
-        return []
-    devices: list[tuple[str, str]] = []
-    for entry in sorted(_SYS_VIDEO.iterdir()):
-        name_file = entry / "name"
-        name = name_file.read_text().strip() if name_file.exists() else entry.name
-        devices.append((f"/dev/{entry.name}", name))
-    return devices
+    return discover_v4l2()
 
 
 @router.get("/cameras", response_model=list[CameraInfo])
@@ -82,22 +71,43 @@ def cameras(app: AppDep) -> list[CameraInfo]:
     return out
 
 
-@router.get("/status", response_model=CameraStatus)
+@router.get("/camera/status", response_model=CameraStatus)
 def camera_status(app: AppDep) -> CameraStatus:
-    st = app.app_status()
+    st = app.camera.status()
     return CameraStatus(
-        state=CameraState.DISCONNECTED,
-        provider=st.camera_provider,
-        width=None,
-        height=None,
-        fps=None,
-        frames_captured=0,
-        last_frame_age_ms=None,
-        error=None,
+        state=CameraState(st["state"]),
+        provider=st["provider"] or app.settings.camera.provider,
+        width=st["width"],
+        height=st["height"],
+        fps=st["fps"],
+        frames_captured=st["frames_captured"],
+        frames_dropped=st["frames_dropped"],
+        last_frame_age_ms=st["last_frame_age_ms"],
+        error=st["error"],
     )
 
 
-@router.get("/capabilities")
+@router.get("/camera/frame.jpg")
+def camera_frame(app: AppDep):
+    """Latest captured frame as JPEG. 503 while no camera is producing frames."""
+    import cv2
+
+    from fastapi import Response
+
+    packet = app.camera.latest_frame()
+    if packet is None:
+        raise HTTPException(status_code=503, detail="No camera frame available yet")
+    ok, buf = cv2.imencode(".jpg", packet.frame)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Frame JPEG encoding failed")
+    return Response(
+        content=buf.tobytes(),
+        media_type="image/jpeg",
+        headers={"Cache-Control": "no-store", "X-Frame-Seq": str(packet.seq)},
+    )
+
+
+@router.get("/camera/capabilities")
 def capabilities(app: AppDep) -> dict:
     devices = _v4l2_devices()
     return {
@@ -109,12 +119,12 @@ def capabilities(app: AppDep) -> dict:
     }
 
 
-@router.get("/config", response_model=SettingsView)
+@router.get("/camera/config", response_model=SettingsView)
 def get_config(app: AppDep) -> SettingsView:
     return SettingsView(**app.settings_view())
 
 
-@router.put("/config", response_model=SettingsView)
+@router.put("/camera/config", response_model=SettingsView)
 def update_config(app: AppDep, update: CameraConfigUpdate) -> SettingsView:
     payload = update.model_dump(exclude_none=True)
     allowed = {
@@ -134,22 +144,25 @@ def update_config(app: AppDep, update: CameraConfigUpdate) -> SettingsView:
     return SettingsView(**app.apply_settings(mapped))
 
 
-@router.post("/start")
+@router.post("/camera/start")
 def start_camera(app: AppDep) -> dict:
-    raise HTTPException(
-        status_code=503,
-        detail="Camera runtime not implemented yet (arrives in Phase 3). No camera was opened.",
-    )
+    detail = app.start_camera()
+    if detail is not None:
+        # Real failure: unavailable hardware, missing file, device busy, ...
+        raise HTTPException(status_code=503, detail=detail)
+    return app.camera.status()
 
 
-@router.post("/stop")
+@router.post("/camera/stop")
 def stop_camera(app: AppDep) -> dict:
-    return {"state": CameraState.DISCONNECTED.value, "detail": "Camera was not running"}
+    app.stop_camera()
+    return app.camera.status()
 
 
-@router.post("/reconnect")
+@router.post("/camera/reconnect")
 def reconnect_camera(app: AppDep) -> dict:
-    raise HTTPException(
-        status_code=503,
-        detail="Camera runtime not implemented yet (arrives in Phase 3).",
-    )
+    app.stop_camera()
+    detail = app.start_camera()
+    if detail is not None:
+        raise HTTPException(status_code=503, detail=detail)
+    return app.camera.status()

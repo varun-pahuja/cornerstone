@@ -1,6 +1,6 @@
 # SilentOS — Architecture
 
-Status: **Phase 1 (foundation) implemented.** This document describes the architecture as
+Status: **Phases 1–2 (foundation + dashboard) implemented.** This document describes the architecture as
 built; sections marked *planned* are designed but not yet implemented. Last updated:
 2026-10-26.
 
@@ -36,7 +36,9 @@ settings; recognition keeps running if the browser closes.
 | `database.py` | ✅ | SQLite (thread-safe, lock-guarded): settings KV, bounded recognition history with retention/max-entries pruning, training job records + log tailing. |
 | `application.py` | ✅ | Central controller: owns real runtime state, builds `AppStatus`, collects **real** metrics via psutil (CPU, memory, disk, temperature when exposed; `null` → "Unavailable"). |
 | `api/routes/health.py` | ✅ | `GET /api/v1/health` (no model loading), `GET /api/v1/status`, `GET /api/v1/system/metrics`. |
-| `main.py` | ✅ | App factory `create_app()`, CORS for the dev origin, lifespan logging, `uvicorn silentos.main:app`. |
+| `main.py` | ✅ | App factory `create_app()`, CORS for the dev origin, lifespan logging, `uvicorn silentos.main:app`; loads persisted settings overrides on startup. |
+| `registry.py` | ✅ | Model manifest scan shared by `/models` and `app_status` — status derived from artifacts on disk (NOT_TRAINED / ERROR / NOT_LOADED), never assumed. |
+| `api/routes/{settings,models,recognition,camera,datasets,training,diagnostics}.py` | ✅ | Phase 2 endpoints: validated settings PUT with persisted overrides + restart reporting; honest model status; history CRUD; real V4L2 discovery (`/sys/class/video4linux`); dataset stats counted from disk; training create rejected (409) until Phase 5; runtime dependency probes. |
 | camera, preprocessing, recognition, fusion, output, dataset, training | 🚧 planned Phases 3–8 | |
 
 Security as built: binds `127.0.0.1` by default; no shell-execution endpoints; filesystem
@@ -50,7 +52,7 @@ access will be restricted to configured directories (validated identifiers, not 
 | Design system | ✅ | "Industrial Utilitarian" tokens in `styles/globals.css` (`@theme`); components use token utilities only. Research: `docs/design_research.md`. |
 | App shell | ✅ | Dark nav rail with 9 routes, active-page indicator, responsive (icon-only < `md`), connection pill polling `/health` every 10 s. |
 | Typed API client | ✅ | `services/api.ts` — single fetch boundary, 10 s timeout, typed `ApiError`. |
-| Pages | 🚧 | `Overview` is wired to real `/status` + `/system/metrics` (loading/error/Unavailable states). The other 8 routes render explicit phase-labelled placeholders — no fake data or dead controls (Phase 2 builds them). |
+| Pages | ✅ | All 9 pages are real: Overview, Live Vision (source list + honest disconnected preview), AI Lab (model registry + fusion readout), Dataset Studio (disk-counted stats), Training Center (jobs + honest 409 create), History (paginated DB rows + clear), Calibration (honest "not implemented" + config defaults), Device Settings (validated PUT + restart banner), System Health (metrics + dependency probes). Shared `usePoll` hook + `Card`/`Row` components. |
 | Live events | 🚧 | WebSocket client planned with the backend WS endpoint (bounded queue, reconnect). |
 
 ## Data flow (planned, Phase 3+)

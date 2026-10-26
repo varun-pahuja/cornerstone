@@ -97,6 +97,7 @@ class CameraStatus(BaseModel):
     height: int | None = None
     fps: float | None = None
     frames_captured: int = 0
+    frames_dropped: int = 0
     last_frame_age_ms: float | None = None
     error: str | None = None
 

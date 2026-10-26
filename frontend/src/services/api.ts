@@ -3,7 +3,23 @@
  * All requests go through this module — no raw fetch() in components.
  */
 
-import type { AppStatus, HealthResponse, SystemMetrics } from "../types/api";
+import type {
+  AppStatus,
+  CameraInfo,
+  CameraStatus,
+  DatasetStats,
+  DatasetSummary,
+  DiagnosticsReport,
+  HealthResponse,
+  HistoryPage,
+  ModelInfo,
+  ModelRegistryStatus,
+  RecognitionStatus,
+  SettingsUpdate,
+  SettingsView,
+  SystemMetrics,
+  TrainingJobInfo,
+} from "../types/api";
 
 const BASE = "/api/v1";
 
@@ -52,4 +68,50 @@ export const api = {
   health: () => request<HealthResponse>("/health"),
   status: () => request<AppStatus>("/status"),
   systemMetrics: () => request<SystemMetrics>("/system/metrics"),
+
+  // settings
+  getSettings: () => request<SettingsView>("/settings"),
+  updateSettings: (body: SettingsUpdate) =>
+    request<SettingsView>("/settings", { method: "PUT", body: JSON.stringify(body) }),
+
+  // models
+  models: () => request<ModelRegistryStatus>("/models"),
+  model: (id: string) => request<ModelInfo>(`/models/${id}`),
+  loadModel: (id: string) => request<{ detail: string }>(`/models/${id}/load`, { method: "POST" }),
+
+  // recognition
+  recognitionStatus: () => request<RecognitionStatus>("/recognition/status"),
+  recognitionStart: () => request<{ runtime_state: string }>("/recognition/start", { method: "POST" }),
+  recognitionStop: () => request<{ runtime_state: string }>("/recognition/stop", { method: "POST" }),
+  history: (limit = 25, offset = 0) =>
+    request<HistoryPage>(`/recognition/history?limit=${limit}&offset=${offset}`),
+  clearHistory: () => request<{ cleared: number }>("/recognition/history", { method: "DELETE" }),
+
+  // camera
+  cameras: () => request<CameraInfo[]>("/cameras"),
+  cameraStatus: () => request<CameraStatus>("/camera/status"),
+  cameraCapabilities: () =>
+    request<{ v4l2_devices: { device_path: string; name: string }[]; note: string }>(
+      "/camera/capabilities",
+    ),
+  updateCameraConfig: (body: SettingsUpdate) =>
+    request<SettingsView>("/camera/config", { method: "PUT", body: JSON.stringify(body) }),
+  cameraStart: () => request<{ detail?: string }>("/camera/start", { method: "POST" }),
+
+  // datasets
+  datasets: () => request<DatasetSummary[]>("/datasets"),
+  datasetStats: () => request<DatasetStats>("/datasets/stats"),
+
+  // training
+  trainingJobs: () => request<TrainingJobInfo[]>("/training/jobs"),
+  createTrainingJob: (body: { modality: string; dataset: string }) =>
+    request<{ detail: string }>("/training/jobs", { method: "POST", body: JSON.stringify(body) }),
+  cancelTrainingJob: (id: number) =>
+    request<{ status: string }>(`/training/jobs/${id}/cancel`, { method: "POST" }),
+
+  // diagnostics
+  dependencies: () => request<DiagnosticsReport>("/system/dependencies"),
+  pythonInfo: () => request<{ version: string; executable: string; platform: string }>(
+    "/system/python",
+  ),
 };

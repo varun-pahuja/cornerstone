@@ -38,8 +38,9 @@ def test_status_reports_honest_initial_state(client: TestClient):
     body = r.json()
     assert body["runtime_state"] == RuntimeState.STOPPED.value
     assert body["camera_state"] == CameraState.DISCONNECTED.value
-    assert body["sign_model_status"] == ModelStatus.NOT_LOADED.value
-    assert body["lip_model_status"] == ModelStatus.NOT_LOADED.value
+    # No artifacts on disk yet -> honestly NOT_TRAINED, never a fake NOT_LOADED
+    assert body["sign_model_status"] == ModelStatus.NOT_TRAINED.value
+    assert body["lip_model_status"] == ModelStatus.NOT_TRAINED.value
     assert body["last_message"] is None
     assert body["last_recognition"] is None
     assert body["inference_latency_ms"] is None

@@ -57,6 +57,11 @@ class Database:
         with self._conn() as c:
             c.executescript(_SCHEMA)
 
+    def close(self) -> None:
+        """No persistent connection is held (one per operation) — provided for
+        symmetry with future pooling; safe to call."""
+        return None
+
     def _conn(self) -> sqlite3.Connection:
         c = sqlite3.connect(self._path, check_same_thread=False)
         c.row_factory = sqlite3.Row
