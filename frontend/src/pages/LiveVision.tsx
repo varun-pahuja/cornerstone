@@ -1,58 +1,33 @@
-import { useEffect, useRef, useState } from "react";
-import { Camera, CameraOff, Plug, Square } from "lucide-react";
+import { Camera, CameraOff, Plug, Square, Wand2 } from "lucide-react";
+import { toast } from "sonner";
+import { Link } from "react-router-dom";
 import { api, ApiError } from "../services/api";
 import { usePoll } from "../hooks/usePoll";
 import { Card, Empty, LoadError, Row } from "../components/ui/Card";
+import { PageHeader } from "../components/ui/PageHeader";
 import { StatusBadge } from "../components/ui/StatusBadge";
+import { FramePreview } from "../components/vision/FramePreview";
+import type { HistoryItem, ModelStatus, RecognitionStatus } from "../types/api";
 
-/** Refreshes an <img> from the bounded JPEG endpoint while the camera runs. */
-function FramePreview({ active }: { active: boolean }) {
-  const [tick, setTick] = useState(0);
-  const [failedTick, setFailedTick] = useState(-1);
-  const failed = failedTick === tick;
-  const imgRef = useRef<HTMLImageElement>(null);
+const err = (e: unknown) => (e instanceof ApiError ? e.message : "Backend unreachable");
 
-  useEffect(() => {
-    if (!active) return;
-    const id = setInterval(() => setTick((t) => t + 1), 400);
-    return () => clearInterval(id);
-  }, [active]);
+const modelTone = (s: ModelStatus) =>
+  s === "LOADED" ? "ok" : s === "NOT_LOADED" ? "warn" : s === "ERROR" ? "danger" : "neutral";
 
-  if (!active) {
-    return (
-      <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 border border-dashed border-line bg-rail">
-        <CameraOff size={32} className="text-ink-faint" aria-hidden />
-        <div className="text-center">
-          <p className="text-[13px] text-ink-soft">No camera connected</p>
-          <p className="mt-1 text-[12px] text-ink-faint">
-            Nothing is rendered until a real source produces frames. No placeholder video.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
+/** Defensive renderer for last_decision — real object, unknown schema, no fabrication. */
+function DecisionFields({ decision }: { decision: Record<string, unknown> }) {
+  const entries = Object.entries(decision).slice(0, 10);
   return (
-    <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden border border-line bg-rail">
-      {failed ? (
-        <div className="text-center">
-          <p className="text-[13px] text-ink-soft">Frame unavailable</p>
-          <p className="mt-1 text-[12px] text-ink-faint">The preview endpoint returned no frame.</p>
+    <dl className="divide-y divide-line/50">
+      {entries.map(([k, v]) => (
+        <div key={k} className="flex items-baseline justify-between gap-3 py-1.5">
+          <dt className="text-[12px] text-ink-soft">{k}</dt>
+          <dd className="data max-w-[60%] truncate text-right text-[12px] font-medium text-ink">
+            {v === null ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v)}
+          </dd>
         </div>
-      ) : (
-        <img
-          ref={imgRef}
-          key={tick}
-          src={`/api/v1/camera/frame.jpg?ts=${tick}`}
-          alt="Live camera frame"
-          className="h-full w-full object-contain"
-          onError={() => setFailedTick(tick)}
-        />
-      )}
-      <span className="data absolute bottom-2 right-2 border border-line bg-panel/90 px-1.5 py-0.5 text-[10px] text-ink-soft">
-        ~2.5 fps preview · recognition path gets every frame
-      </span>
-    </div>
+      ))}
+    </dl>
   );
 }
 
@@ -60,19 +35,21 @@ export default function LiveVision() {
   const cameras = usePoll(() => api.cameras(), 15_000);
   const camStatus = usePoll(() => api.cameraStatus(), 2_000);
   const caps = usePoll(() => api.cameraCapabilities(), 60_000);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const recog = usePoll(() => api.recognitionStatus(), 5_000);
+  const timeline = usePoll(() => api.history(8, 0), 10_000);
+  const [busy, setBusy] = useStateBusy();
 
   const st = camStatus.data;
   const connected = st?.state === "CONNECTED";
+  const r: RecognitionStatus | null = recog.data;
 
   async function handleStart() {
-    setMsg(null);
     setBusy(true);
     try {
       await api.cameraStart();
-    } catch (err) {
-      setMsg(err instanceof ApiError ? err.message : "Backend unreachable");
+      toast.success("Camera started");
+    } catch (e) {
+      toast.error(err(e));
     } finally {
       setBusy(false);
       camStatus.refresh();
@@ -80,103 +57,223 @@ export default function LiveVision() {
   }
 
   async function handleStop() {
-    setMsg(null);
     setBusy(true);
     try {
       await api.cameraStop();
-    } catch (err) {
-      setMsg(err instanceof ApiError ? err.message : "Backend unreachable");
+      toast.success("Camera stopped");
+    } catch (e) {
+      toast.error(err(e));
     } finally {
       setBusy(false);
       camStatus.refresh();
     }
   }
 
+  const items: HistoryItem[] = timeline.data?.items ?? [];
+  const provider = st?.provider ?? "unknown provider";
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">Live Vision</h1>
-        <div className="flex items-center gap-2">
-          {st && (
+    <div className="space-y-5">
+      <PageHeader
+        title="Live Vision"
+        description={
+          connected
+            ? `Receiving frames from ${provider}${st?.width ? ` · ${st.width}×${st.height}` : ""}`
+            : `Vision workstation · provider ${provider} not producing frames`
+        }
+        status={
+          st && (
             <StatusBadge
               tone={connected ? "ok" : st.state === "ERROR" || st.state === "UNAVAILABLE" ? "danger" : "neutral"}
             >
               {st.state}
             </StatusBadge>
-          )}
-          {connected ? (
+          )
+        }
+        actions={
+          connected ? (
             <button
               type="button"
               onClick={handleStop}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 border border-danger/40 bg-danger-soft px-3 py-1.5 text-[13px] text-danger disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-sm border border-danger/40 bg-danger-soft px-3 py-1.5 text-[13px] text-danger transition-colors hover:bg-danger/20 disabled:opacity-50"
             >
-              <Square size={14} aria-hidden />
-              Stop camera
+              <Square size={14} aria-hidden /> Stop camera
             </button>
           ) : (
             <button
               type="button"
               onClick={handleStart}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 border border-line px-3 py-1.5 text-[13px] hover:bg-paper disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-sm border border-primary/50 bg-primary-soft px-3 py-1.5 text-[13px] text-primary transition-colors hover:bg-primary/15 disabled:opacity-50"
             >
               <Camera size={14} aria-hidden />
               {busy ? "Starting…" : "Start camera"}
             </button>
-          )}
+          )
+        }
+      />
+
+      <div className="grid gap-4 xl:grid-cols-12">
+        {/* ---- Main workstation ---- */}
+        <div className="space-y-4 xl:col-span-9">
+          <Card
+            title="Preview"
+            actions={
+              <span className="data text-[11px] text-ink-faint">
+                {st ? `${st.frames_captured} captured · ${st.frames_dropped} stale dropped` : ""}
+              </span>
+            }
+          >
+            <FramePreview
+              active={connected}
+              badge={
+                st?.width ? (
+                  <span className="data rounded-sm border border-line bg-panel/85 px-2 py-1 text-[10.5px] text-ink-soft">
+                    {st.width}×{st.height} · {st.fps ?? "—"} fps
+                  </span>
+                ) : undefined
+              }
+              hint={
+                <>
+                  Provider <span className="data">{provider}</span> is{" "}
+                  <span className="data">{st?.state ?? "unavailable"}</span>. Connect a USB camera,
+                  or switch provider under{" "}
+                  <Link to="/settings" className="text-primary underline underline-offset-2">
+                    Device Settings
+                  </Link>
+                  . No placeholder video is ever shown.
+                </>
+              }
+            />
+            {/* Framing guidance — chrome only, never a fake detection overlay */}
+            {connected && (
+              <div className="pointer-events-none absolute inset-0" aria-hidden>
+                <div className="absolute inset-6 rounded-sm border border-white/10" />
+                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 rounded-sm bg-black/50 px-2.5 py-1 font-mono text-[10.5px] tracking-[0.06em] text-white/70 uppercase">
+                  keep hands / face inside frame
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* Recognition lanes — honest states only */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card
+              title="Sign recognition"
+              actions={
+                r && <StatusBadge tone={modelTone(r.sign_model)}>{r.sign_model}</StatusBadge>
+              }
+            >
+              <p className="text-[13px] text-ink-soft">
+                {r?.sign_model === "LOADED"
+                  ? "Model loaded — gestures classified per frame."
+                  : r
+                    ? "Model not loaded. Train a sign model in Training Center."
+                    : "Recognition status unavailable."}
+              </p>
+            </Card>
+            <Card
+              title="Silent-lip recognition"
+              actions={r && <StatusBadge tone={modelTone(r.lip_model)}>{r.lip_model}</StatusBadge>}
+            >
+              <p className="text-[13px] text-ink-soft">
+                {r?.lip_model === "LOADED"
+                  ? "Model loaded — mouth-region frames classified per window."
+                  : r
+                    ? "Model not trained yet (Phase 6). This lane stays honest until it exists."
+                    : "Recognition status unavailable."}
+              </p>
+            </Card>
+            <Card
+              title="Fusion result"
+              actions={r && <StatusBadge tone={r.runtime_state === "RUNNING" ? "primary" : "neutral"}>{r.runtime_state}</StatusBadge>}
+            >
+              {r?.last_decision ? (
+                <DecisionFields decision={r.last_decision} />
+              ) : (
+                <p className="text-[13px] text-ink-faint">
+                  No fused decision yet. Confidence appears here only when a model produces one.
+                </p>
+              )}
+            </Card>
+          </div>
+
+          {/* Event timeline */}
+          <Card
+            title="Recognition events"
+            actions={
+              <Link to="/history" className="text-[12px] text-primary hover:text-primary-hover">
+                Full history
+              </Link>
+            }
+          >
+            {timeline.loading && !timeline.data ? (
+              <LoadError error={timeline.error} loading />
+            ) : items.length === 0 ? (
+              <Empty text="No events yet — decisions appear here as the runtime stores them." />
+            ) : (
+              <ol className="relative space-y-0 border-l border-line pl-4">
+                {items.map((h) => (
+                  <li key={h.id} className="relative py-2.5">
+                    <span
+                      className={`absolute -left-[21px] top-4 h-2 w-2 rounded-full ${
+                        h.accepted ? "bg-ok" : "bg-warn"
+                      }`}
+                      aria-hidden
+                    />
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <span className="data text-[11.5px] text-ink-faint">
+                        {new Date(h.timestamp).toLocaleTimeString()}
+                      </span>
+                      <span className="data text-[13px] font-medium text-ink">{h.final_label}</span>
+                      <StatusBadge tone={h.accepted ? "ok" : "warn"}>
+                        {h.accepted ? "accepted" : "abstained"}
+                      </StatusBadge>
+                      <span className="text-[12px] text-ink-faint">{h.reason}</span>
+                      {h.latency_ms !== null && (
+                        <span className="data text-[11.5px] text-ink-faint">{h.latency_ms} ms</span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </Card>
         </div>
-      </div>
 
-      {msg && (
-        <div className="border border-warn/30 bg-warn-soft px-3 py-2 text-[13px] text-warn" role="status">
-          {msg}
-        </div>
-      )}
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card title="Preview" className="lg:col-span-2">
-          <FramePreview active={connected} />
-        </Card>
-
-        <div className="space-y-4">
-          <Card title="Status">
+        {/* ---- Side rail ---- */}
+        <div className="space-y-4 xl:col-span-3">
+          <Card title="Camera status">
             {st ? (
               <>
                 <Row label="State" value={st.state} />
-                <Row label="Provider" value={st.provider ?? "—"} />
-                <Row
-                  label="Resolution"
-                  value={st.width && st.height ? `${st.width}×${st.height}` : "Unavailable"}
-                />
+                <Row label="Provider" value={st.provider} />
+                <Row label="Resolution" value={st.width ? `${st.width}×${st.height}` : "Unavailable"} />
                 <Row label="FPS" value={st.fps ?? "Unavailable"} />
                 <Row label="Frames captured" value={st.frames_captured} />
-                <Row label="Stale frames dropped" value={st.frames_dropped} />
+                <Row label="Stale dropped" value={st.frames_dropped} />
                 <Row
                   label="Last frame age"
                   value={st.last_frame_age_ms !== null ? `${st.last_frame_age_ms} ms` : "Unavailable"}
                 />
-                {st.error && (
-                  <Row label="Error" value={<span className="text-danger">{st.error}</span>} />
-                )}
+                {st.error && <Row label="Error" value={<span className="text-danger">{st.error}</span>} />}
               </>
             ) : (
               <LoadError error={camStatus.error} loading={camStatus.loading} />
             )}
           </Card>
 
-          <Card title="Source">
+          <Card title="Sources">
             {cameras.loading && !cameras.data ? (
               <LoadError error={cameras.error} loading />
             ) : (
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {(cameras.data ?? []).map((c) => (
                   <li key={c.provider} className="flex items-start justify-between gap-2 text-[12px]">
                     <span className="text-ink-soft">
                       {c.label}
-                      {c.device_path && (
-                        <span className="data block text-ink-faint">{c.device_path}</span>
-                      )}
+                      {c.device_path && <span className="data block text-ink-faint">{c.device_path}</span>}
                       {c.detail && <span className="block text-ink-faint">{c.detail}</span>}
                     </span>
                     <StatusBadge tone={c.available ? "ok" : "neutral"}>
@@ -186,34 +283,55 @@ export default function LiveVision() {
                 ))}
               </ul>
             )}
-            <p className="mt-2 text-[11px] text-ink-faint">
-              Switch sources under Device Settings → Camera; provider changes need a backend
-              restart.
+            {!connected && (
+              <p className="mt-3 flex items-start gap-1.5 text-[11.5px] leading-relaxed text-ink-faint">
+                <CameraOff size={13} className="mt-0.5 shrink-0" aria-hidden />
+                Selected provider: <span className="data">{provider}</span>. Provider changes are
+                made under Device Settings and need a backend restart.
+              </p>
+            )}
+          </Card>
+
+          <Card
+            title="Kernel capabilities"
+            actions={<span className="label">V4L2</span>}
+          >
+            {caps.data ? (
+              caps.data.v4l2_devices.length > 0 ? (
+                <ul className="space-y-1.5">
+                  {caps.data.v4l2_devices.map((d) => (
+                    <li key={d.device_path} className="flex items-center gap-2 text-[12.5px]">
+                      <Plug size={13} className="shrink-0 text-ink-faint" aria-hidden />
+                      <span className="data">{d.device_path}</span>
+                      <span className="truncate text-ink-soft">{d.name}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <Empty text="No V4L2 video devices detected on this machine." />
+              )
+            ) : (
+              <LoadError error={caps.error} loading={caps.loading} />
+            )}
+            {caps.data && <p className="mt-2 text-[11.5px] text-ink-faint">{caps.data.note}</p>}
+          </Card>
+
+          <Card title="Next step">
+            <p className="flex items-start gap-2 text-[13px] leading-relaxed text-ink-soft">
+              <Wand2 size={14} className="mt-0.5 shrink-0 text-primary" aria-hidden />
+              {st?.state === "DISCONNECTED" || !st
+                ? "Start the camera to feed the preview, dataset recording, and recognition runtime."
+                : "Camera is live — start the recognition runtime from the Overview once models are trained."}
             </p>
           </Card>
         </div>
       </div>
-
-      <Card title="Device capabilities (kernel-reported)">
-        {caps.data ? (
-          caps.data.v4l2_devices.length > 0 ? (
-            <ul className="space-y-1.5">
-              {caps.data.v4l2_devices.map((d) => (
-                <li key={d.device_path} className="flex items-center gap-2 text-[13px]">
-                  <Plug size={13} className="text-ink-faint" aria-hidden />
-                  <span className="data">{d.device_path}</span>
-                  <span className="text-ink-soft">{d.name}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <Empty text="No V4L2 video devices detected on this machine." />
-          )
-        ) : (
-          <LoadError error={caps.error} loading={caps.loading} />
-        )}
-        <p className="mt-2 text-[12px] text-ink-faint">{caps.data?.note}</p>
-      </Card>
     </div>
   );
+}
+
+/** tiny local helper so this file owns its busy flag without extra deps */
+function useStateBusy(): [boolean, (b: boolean) => void] {
+  const [busy, setBusy] = useReactState(false);
+  return [busy, setBusy];
 }
