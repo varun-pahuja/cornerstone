@@ -3,6 +3,7 @@ import { api } from "../services/api";
 import { usePoll } from "../hooks/usePoll";
 import { Card, Empty, LoadError, Row } from "../components/ui/Card";
 import { fmt } from "../lib/utils";
+import { PageHeader } from "../components/ui/PageHeader";
 import { StatusBadge } from "../components/ui/StatusBadge";
 
 export default function SystemHealth() {
@@ -17,29 +18,32 @@ export default function SystemHealth() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">System Health</h1>
-        <div className="flex gap-2">
-          {metrics.error && <StatusBadge tone="danger">Metrics: {metrics.error}</StatusBadge>}
-          {deps.error && <StatusBadge tone="danger">Deps: {deps.error}</StatusBadge>}
-        </div>
-      </div>
+      <PageHeader
+        title="System Health"
+        description="Point-in-time host metrics, runtime state, and dependency probes — read live, never synthesized."
+        status={
+          <>
+            {metrics.error && <StatusBadge tone="danger">Metrics: {metrics.error}</StatusBadge>}
+            {deps.error && <StatusBadge tone="danger">Deps: {deps.error}</StatusBadge>}
+          </>
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card title="CPU">
-          <p className="data text-3xl font-semibold">{fmt(m?.cpu_percent, "%")}</p>
+          <p className="data text-[28px] font-medium">{fmt(m?.cpu_percent, "%")}</p>
         </Card>
         <Card title="Memory">
-          <p className="data text-3xl font-semibold">{fmt(m?.memory_percent, "%")}</p>
+          <p className="data text-[28px] font-medium">{fmt(m?.memory_percent, "%")}</p>
           <p className="mt-1 text-[12px] text-ink-faint">
             {m ? `${m.memory_used_mb} / ${m.memory_total_mb} MB` : "Unavailable"}
           </p>
         </Card>
         <Card title="Disk">
-          <p className="data text-3xl font-semibold">{fmt(m?.disk_percent, "%")}</p>
+          <p className="data text-[28px] font-medium">{fmt(m?.disk_percent, "%")}</p>
         </Card>
         <Card title="Temperature">
-          <p className="data text-3xl font-semibold">
+          <p className="data text-[28px] font-medium">
             {m?.temperature_c != null ? `${m.temperature_c} °C` : "Unavailable"}
           </p>
           <p className="mt-1 text-[12px] text-ink-faint">

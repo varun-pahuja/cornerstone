@@ -93,6 +93,7 @@
   --color-muted-foreground: #a4a6ab;
   --color-accent: #1c2025; /* subtle hover tint (NOT the brand color) */
   --color-accent-foreground: #e8e6e1;
+  --color-paper: #1a1d21; /* legacy surface alias (inputs, hover tints) → elevated */
   --color-destructive: #f07167;
   --color-destructive-foreground: #0d0e10;
   --color-border: #24272c;

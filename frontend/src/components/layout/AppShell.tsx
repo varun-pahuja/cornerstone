@@ -140,7 +140,7 @@ export function AppShell() {
   ).find((i) => (i.end ? pathname === i.to : pathname.startsWith(i.to)));
 
   return (
-    <TooltipProvider delayDuration={250}>
+    <TooltipProvider delay={250}>
       <div className="flex min-h-screen">
         {/* Navigation rail */}
         <nav
@@ -149,7 +149,7 @@ export function AppShell() {
         >
           <div className="flex h-14 items-center justify-center border-b border-line-dark lg:justify-start lg:px-4">
             {/* Typographic wordmark — no invented symbol (docs/design_research.md) */}
-            <span className="display text-[17px] font-semibold tracking-tight text-ink">
+            <span className="display text-[13.5px] font-semibold tracking-tight text-ink lg:text-[17px]">
               Silent<span className="text-primary">OS</span>
             </span>
           </div>

@@ -2,6 +2,7 @@ import { SlidersHorizontal, TriangleAlert } from "lucide-react";
 import { api } from "../services/api";
 import { usePoll } from "../hooks/usePoll";
 import { Card, LoadError, Row } from "../components/ui/Card";
+import { PageHeader } from "../components/ui/PageHeader";
 import { StatusBadge } from "../components/ui/StatusBadge";
 
 export default function Calibration() {
@@ -10,12 +11,13 @@ export default function Calibration() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">Calibration</h1>
-        <StatusBadge tone="warn">No calibration profile</StatusBadge>
-      </div>
+      <PageHeader
+        title="Calibration"
+        description="Per-user threshold calibration — planned for Phase 9 with a real measurement API."
+        status={<StatusBadge tone="warn">No calibration profile</StatusBadge>}
+      />
 
-      <div className="border border-warn/30 bg-warn-soft px-3 py-2 text-[13px] text-warn">
+      <div className="rounded-sm border border-warn/30 bg-warn-soft px-3 py-2 text-[13px] text-warn">
         Calibration (per-user thresholds, lighting/session adaptation) is not implemented yet —
         it arrives in Phase 9 with a real calibration API. The values below are your current
         configuration defaults, not a measured calibration.

@@ -3,11 +3,15 @@ import { Camera, Database, Download, FileVideo, PackageOpen, Play, Split, Wrench
 import { api, ApiError } from "../services/api";
 import { usePoll } from "../hooks/usePoll";
 import { Card, Empty, LoadError, Row } from "../components/ui/Card";
+import { PageHeader } from "../components/ui/PageHeader";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import type { ClipRecord, SplitResult, ValidationReport } from "../types/api";
 
 const inputCls =
-  "w-full border border-line bg-paper px-2.5 py-1.5 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+  "w-full rounded-sm border border-line bg-elevated px-2.5 py-1.5 text-[13px] text-ink outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
+
+const btnSec =
+  "inline-flex items-center gap-1.5 rounded-sm border border-line px-3 py-1.5 text-[13px] text-ink-soft transition-colors hover:border-line-strong hover:text-ink disabled:cursor-not-allowed disabled:opacity-50";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -138,27 +142,33 @@ export default function DatasetStudio() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">Dataset Studio</h1>
-        <div className="flex gap-2">
+      <PageHeader
+        title="Dataset Studio"
+        description="Record and import clips, validate them, and generate participant-safe splits — every count is read from manifests on disk."
+        status={
+          <StatusBadge tone={camConnected ? "ok" : "neutral"}>
+            {camConnected ? "camera live" : (camera.data?.state ?? "camera …")}
+          </StatusBadge>
+        }
+        actions={
           <a
             href={api.exportUrl("default")}
-            className="inline-flex items-center gap-1.5 border border-line px-3 py-1.5 text-[13px] hover:bg-paper"
+            className={btnSec}
             title="Download manifest + splits + clips as a zip"
           >
             <Download size={14} aria-hidden />
             Export zip
           </a>
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card title="Clips">
-          {s ? <p className="data text-3xl font-semibold">{s.total_clips}</p> : <LoadError error={stats.error} loading={stats.loading} />}
+          {s ? <p className="data text-[28px] font-medium">{s.total_clips}</p> : <LoadError error={stats.error} loading={stats.loading} />}
           <p className="mt-1 text-[12px] text-ink-faint">counted from manifests on disk</p>
         </Card>
         <Card title="Raw video files">
-          {s ? <p className="data text-3xl font-semibold">{s.raw_video_files}</p> : <LoadError error={stats.error} loading={stats.loading} />}
+          {s ? <p className="data text-[28px] font-medium">{s.raw_video_files}</p> : <LoadError error={stats.error} loading={stats.loading} />}
           <p className="mt-1 text-[12px] text-ink-faint">under data/raw, any session folder</p>
         </Card>
         <Card title="Splits">
@@ -225,7 +235,7 @@ export default function DatasetStudio() {
               type="button"
               onClick={handleRecord}
               disabled={!camConnected || recording}
-              className="inline-flex items-center gap-1.5 border border-accent bg-accent px-3 py-1.5 text-[13px] text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-sm border border-primary/50 bg-primary-soft px-3 py-1.5 text-[13px] font-medium text-primary transition-colors hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Play size={14} aria-hidden />
               {recording ? `Recording ${rSeconds}s…` : `Record ${rSeconds}s clip`}
@@ -267,7 +277,7 @@ export default function DatasetStudio() {
               type="button"
               onClick={handleImport}
               disabled={!iFile || importing}
-              className="inline-flex items-center gap-1.5 border border-line px-3 py-1.5 text-[13px] hover:bg-paper disabled:cursor-not-allowed disabled:opacity-50"
+              className={btnSec}
             >
               <PackageOpen size={14} aria-hidden />
               {importing ? "Importing…" : "Import clip"}
@@ -288,7 +298,7 @@ export default function DatasetStudio() {
             <button
               type="button"
               onClick={handleValidate}
-              className="inline-flex items-center gap-1.5 border border-line px-2 py-1 text-[12px] hover:bg-paper"
+              className="inline-flex items-center gap-1.5 rounded-sm border border-line px-2 py-1 text-[12px] text-ink-soft transition-colors hover:border-line-strong hover:text-ink"
             >
               <Wrench size={12} aria-hidden /> Run
             </button>
@@ -330,7 +340,7 @@ export default function DatasetStudio() {
               <button
                 type="button"
                 onClick={handleSplits}
-                className="inline-flex items-center gap-1.5 border border-line px-3 py-1.5 text-[13px] hover:bg-paper"
+                className={btnSec}
               >
                 <Split size={14} aria-hidden />
                 Generate

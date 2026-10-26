@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Camera, CameraOff, Plug, Square, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
@@ -37,7 +38,7 @@ export default function LiveVision() {
   const caps = usePoll(() => api.cameraCapabilities(), 60_000);
   const recog = usePoll(() => api.recognitionStatus(), 5_000);
   const timeline = usePoll(() => api.history(8, 0), 10_000);
-  const [busy, setBusy] = useStateBusy();
+  const [busy, setBusy] = useState(false);
 
   const st = camStatus.data;
   const connected = st?.state === "CONNECTED";
@@ -125,36 +126,38 @@ export default function LiveVision() {
               </span>
             }
           >
-            <FramePreview
-              active={connected}
-              badge={
-                st?.width ? (
-                  <span className="data rounded-sm border border-line bg-panel/85 px-2 py-1 text-[10.5px] text-ink-soft">
-                    {st.width}×{st.height} · {st.fps ?? "—"} fps
-                  </span>
-                ) : undefined
-              }
-              hint={
-                <>
-                  Provider <span className="data">{provider}</span> is{" "}
-                  <span className="data">{st?.state ?? "unavailable"}</span>. Connect a USB camera,
-                  or switch provider under{" "}
-                  <Link to="/settings" className="text-primary underline underline-offset-2">
-                    Device Settings
-                  </Link>
-                  . No placeholder video is ever shown.
-                </>
-              }
-            />
-            {/* Framing guidance — chrome only, never a fake detection overlay */}
-            {connected && (
-              <div className="pointer-events-none absolute inset-0" aria-hidden>
-                <div className="absolute inset-6 rounded-sm border border-white/10" />
-                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 rounded-sm bg-black/50 px-2.5 py-1 font-mono text-[10.5px] tracking-[0.06em] text-white/70 uppercase">
-                  keep hands / face inside frame
+            <div className="relative">
+              <FramePreview
+                active={connected}
+                badge={
+                  st?.width ? (
+                    <span className="data rounded-sm border border-line bg-panel/85 px-2 py-1 text-[10.5px] text-ink-soft">
+                      {st.width}×{st.height} · {st.fps ?? "—"} fps
+                    </span>
+                  ) : undefined
+                }
+                hint={
+                  <>
+                    Provider <span className="data">{provider}</span> is{" "}
+                    <span className="data">{st?.state ?? "unavailable"}</span>. Connect a USB camera,
+                    or switch provider under{" "}
+                    <Link to="/settings" className="text-primary underline underline-offset-2">
+                      Device Settings
+                    </Link>
+                    . No placeholder video is ever shown.
+                  </>
+                }
+              />
+              {/* Framing guidance — chrome only, never a fake detection overlay */}
+              {connected && (
+                <div className="pointer-events-none absolute inset-0" aria-hidden>
+                  <div className="absolute inset-6 rounded-sm border border-white/10" />
+                  <div className="absolute bottom-10 left-1/2 -translate-x-1/2 rounded-sm bg-black/50 px-2.5 py-1 font-mono text-[10.5px] tracking-[0.06em] text-white/70 uppercase">
+                    keep hands / face inside frame
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </Card>
 
           {/* Recognition lanes — honest states only */}
@@ -286,8 +289,10 @@ export default function LiveVision() {
             {!connected && (
               <p className="mt-3 flex items-start gap-1.5 text-[11.5px] leading-relaxed text-ink-faint">
                 <CameraOff size={13} className="mt-0.5 shrink-0" aria-hidden />
-                Selected provider: <span className="data">{provider}</span>. Provider changes are
-                made under Device Settings and need a backend restart.
+                <span>
+                  Selected provider: <span className="data">{provider}</span>. Provider changes are
+                  made under Device Settings and need a backend restart.
+                </span>
               </p>
             )}
           </Card>
@@ -328,10 +333,4 @@ export default function LiveVision() {
       </div>
     </div>
   );
-}
-
-/** tiny local helper so this file owns its busy flag without extra deps */
-function useStateBusy(): [boolean, (b: boolean) => void] {
-  const [busy, setBusy] = useReactState(false);
-  return [busy, setBusy];
 }

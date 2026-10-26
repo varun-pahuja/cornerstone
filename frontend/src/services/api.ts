@@ -125,8 +125,13 @@ export const api = {
 
   // training
   trainingJobs: () => request<TrainingJobInfo[]>("/training/jobs"),
+  trainingJob: (id: number) =>
+    request<{ job: TrainingJobInfo; logs: unknown[] }>(`/training/jobs/${id}`),
   createTrainingJob: (body: { modality: string; dataset: string }) =>
-    request<{ detail: string }>("/training/jobs", { method: "POST", body: JSON.stringify(body) }),
+    request<{ job?: TrainingJobInfo }>("/training/jobs", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   cancelTrainingJob: (id: number) =>
     request<{ status: string }>(`/training/jobs/${id}/cancel`, { method: "POST" }),
 

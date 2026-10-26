@@ -3,6 +3,7 @@ import { Trash2 } from "lucide-react";
 import { api, ApiError } from "../services/api";
 import { usePoll } from "../hooks/usePoll";
 import { Card, Empty, LoadError } from "../components/ui/Card";
+import { PageHeader } from "../components/ui/PageHeader";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import type { HistoryItem } from "../types/api";
 
@@ -40,23 +41,32 @@ export default function History() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">Recognition History</h1>
-        <button
-          type="button"
-          onClick={handleClear}
-          disabled={total === 0}
-          className={`inline-flex items-center gap-1.5 border px-3 py-1.5 text-[13px] disabled:cursor-not-allowed disabled:opacity-50 ${
-            confirming ? "border-danger/40 bg-danger-soft text-danger" : "border-line hover:bg-paper"
-          }`}
-        >
-          <Trash2 size={14} aria-hidden />
-          {confirming ? "Click again to confirm" : "Clear history"}
-        </button>
-      </div>
+      <PageHeader
+        title="Recognition History"
+        description="Every stored fusion decision — a real database record, nothing prefilled."
+        status={total > 0 ? <StatusBadge tone="neutral">{total} rows</StatusBadge> : undefined}
+        actions={
+          <button
+            type="button"
+            onClick={handleClear}
+            disabled={total === 0}
+            className={`inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-[13px] transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              confirming
+                ? "border-danger/50 bg-danger-soft text-danger"
+                : "border-line text-ink-soft hover:border-line-strong hover:text-ink"
+            }`}
+          >
+            <Trash2 size={14} aria-hidden />
+            {confirming ? "Click again to confirm" : "Clear history"}
+          </button>
+        }
+      />
 
       {msg && (
-        <div className="border border-line bg-paper px-3 py-2 text-[13px]" role="status">
+        <div
+          className="rounded-sm border border-line bg-elevated px-3 py-2 text-[13px] text-ink-soft"
+          role="status"
+        >
           {msg}
         </div>
       )}
@@ -68,8 +78,8 @@ export default function History() {
           <div className="space-y-2">
             <Empty text="No recognition decisions yet." />
             <p className="text-[12px] text-ink-faint">
-              Entries appear once the recognition runtime (Phase 3+) produces decisions. Every
-              row here is a real database record — nothing is prefilled.
+              Entries appear once the recognition runtime produces decisions. Every row here is a
+              real database record — nothing is prefilled.
             </p>
           </div>
         ) : (
@@ -125,7 +135,7 @@ export default function History() {
                 type="button"
                 onClick={() => setOffset((o) => Math.max(0, o - PAGE))}
                 disabled={offset === 0}
-                className="border border-line px-3 py-1 text-[13px] disabled:opacity-40"
+                className="rounded-sm border border-line px-3 py-1 text-[13px] text-ink-soft transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
                 Previous
               </button>
@@ -136,7 +146,7 @@ export default function History() {
                 type="button"
                 onClick={() => setOffset((o) => o + PAGE)}
                 disabled={offset + PAGE >= total}
-                className="border border-line px-3 py-1 text-[13px] disabled:opacity-40"
+                className="rounded-sm border border-line px-3 py-1 text-[13px] text-ink-soft transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
                 Next
               </button>

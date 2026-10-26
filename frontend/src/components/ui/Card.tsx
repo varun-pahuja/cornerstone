@@ -35,6 +35,24 @@ export function Empty({ text }: { text: string }) {
   return <p className="text-[13px] leading-relaxed text-ink-faint">{text}</p>;
 }
 
+/** One real backend metric — shown raw, never converted or invented. */
+export function MetricCell({ name, value }: { name: string; value: unknown }) {
+  const text =
+    value === null || value === undefined
+      ? "—"
+      : typeof value === "number"
+        ? Number.isInteger(value)
+          ? String(value)
+          : value.toFixed(4)
+        : String(value);
+  return (
+    <div className="rounded-sm border border-line bg-rail px-3 py-2">
+      <p className="label">{name.replace(/_/g, " ")}</p>
+      <p className="data mt-1 text-[15px] font-medium text-ink">{text}</p>
+    </div>
+  );
+}
+
 export function LoadError({ error, loading }: { error: string | null; loading: boolean }) {
   if (loading) return <p className="text-[13px] text-ink-faint">Loading…</p>;
   if (error) return <p className="text-[13px] text-danger">{error}</p>;

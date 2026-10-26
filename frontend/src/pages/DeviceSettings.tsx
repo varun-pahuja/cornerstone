@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Save, TriangleAlert } from "lucide-react";
 import { api, ApiError } from "../services/api";
 import { Card, LoadError } from "../components/ui/Card";
+import { PageHeader } from "../components/ui/PageHeader";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import type { RecognitionMode, SettingsUpdate, SettingsView } from "../types/api";
 
@@ -26,7 +27,7 @@ function Field({
 }
 
 const inputCls =
-  "w-full border border-line bg-paper px-2.5 py-1.5 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+  "w-full rounded-sm border border-line bg-elevated px-2.5 py-1.5 text-[13px] text-ink outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
 
 export default function DeviceSettings() {
   const [form, setForm] = useState<SettingsView | null>(null);
@@ -91,30 +92,33 @@ export default function DeviceSettings() {
 
   return (
     <form onSubmit={save} className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">Device Settings</h1>
-        <button
-          type="submit"
-          disabled={saving}
-          className="inline-flex items-center gap-1.5 border border-accent bg-accent px-3 py-1.5 text-[13px] text-white hover:opacity-90 disabled:opacity-50"
-        >
-          <Save size={14} aria-hidden />
-          {saving ? "Saving…" : "Save settings"}
-        </button>
-      </div>
+      <PageHeader
+        title="Device Settings"
+        description="Runtime, camera, speech, and retention configuration — validated server-side on save."
+        actions={
+          <button
+            type="submit"
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 rounded-sm border border-primary/50 bg-primary-soft px-3 py-1.5 text-[13px] font-medium text-primary transition-colors hover:bg-primary/15 disabled:opacity-50"
+          >
+            <Save size={14} aria-hidden />
+            {saving ? "Saving…" : "Save settings"}
+          </button>
+        }
+      />
 
       {error && (
-        <div className="border border-danger/30 bg-danger-soft px-3 py-2 text-[13px] text-danger" role="alert">
+        <div className="rounded-sm border border-danger/30 bg-danger-soft px-3 py-2 text-[13px] text-danger" role="alert">
           {error}
         </div>
       )}
       {saved && (
-        <div className="border border-ok/30 bg-ok-soft px-3 py-2 text-[13px] text-ok" role="status">
+        <div className="rounded-sm border border-ok/30 bg-ok-soft px-3 py-2 text-[13px] text-ok" role="status">
           Settings saved.
         </div>
       )}
       {form.requires_restart.length > 0 && (
-        <div className="flex items-start gap-2 border border-warn/30 bg-warn-soft px-3 py-2 text-[13px] text-warn">
+        <div className="flex items-start gap-2 rounded-sm border border-warn/30 bg-warn-soft px-3 py-2 text-[13px] text-warn">
           <TriangleAlert size={15} className="mt-0.5 shrink-0" aria-hidden />
           <span>
             Saved, but these changes only take effect after a backend restart:{" "}
