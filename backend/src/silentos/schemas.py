@@ -82,6 +82,8 @@ class CameraInfo(BaseModel):
     provider: str
     label: str
     device_path: str | None = None
+    available: bool = True
+    detail: str | None = None
     connected: bool = False
     width: int | None = None
     height: int | None = None
@@ -177,3 +179,111 @@ class WsEvent(BaseModel):
     payload: dict[str, Any]
     timestamp: datetime
     schema_version: str = SCHEMA_VERSION
+
+
+# ---- Settings ----
+
+class SettingsView(BaseModel):
+    """Effective runtime settings returned to the dashboard."""
+
+    recognition_mode: RecognitionMode
+    min_confidence: float
+    sign_threshold: float
+    lip_threshold: float
+    allow_single_modality: bool
+    speech_enabled: bool
+    speech_cooldown_ms: int
+    history_retention_days: int
+    history_max_entries: int
+    camera_provider: str
+    camera_target_width: int
+    camera_target_height: int
+    camera_target_fps: float
+    camera_video_path: str | None = None
+    camera_device_index: int
+    vocabulary: list[str]
+    abstain_label: str
+    requires_restart: list[str] = Field(default_factory=list)
+
+
+class SettingsUpdate(BaseModel):
+    """Partial update. None = leave unchanged."""
+
+    recognition_mode: RecognitionMode | None = None
+    min_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    sign_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+    lip_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+    allow_single_modality: bool | None = None
+    speech_enabled: bool | None = None
+    speech_cooldown_ms: int | None = Field(default=None, ge=0, le=60000)
+    history_retention_days: int | None = Field(default=None, ge=1, le=3650)
+    history_max_entries: int | None = Field(default=None, ge=100, le=1_000_000)
+    camera_provider: str | None = None
+    camera_target_width: int | None = Field(default=None, ge=64, le=3840)
+    camera_target_height: int | None = Field(default=None, ge=64, le=2160)
+    camera_target_fps: float | None = Field(default=None, ge=0.1, le=60.0)
+    camera_video_path: str | None = None
+    camera_device_index: int | None = Field(default=None, ge=0, le=16)
+
+
+# ---- Models ----
+
+class ModelRegistryStatus(BaseModel):
+    models: list[ModelInfo]
+    sign_status: ModelStatus
+    lip_status: ModelStatus
+
+
+# ---- Datasets ----
+
+class DatasetSummary(BaseModel):
+    dataset_id: str
+    name: str
+    clip_count: int
+    path: str
+
+
+class DatasetStats(BaseModel):
+    total_clips: int = 0
+    raw_video_files: int = 0
+    manifests: int = 0
+    by_class: dict[str, int] = Field(default_factory=dict)
+    by_modality: dict[str, int] = Field(default_factory=dict)
+
+
+# ---- Training ----
+
+class TrainingJobInfo(BaseModel):
+    id: int
+    created_at: str
+    modality: str
+    dataset: str
+    status: str
+    progress: float
+    current_epoch: int
+    total_epochs: int
+    metrics: dict[str, Any] | None = None
+    error: str | None = None
+
+
+class TrainingJobCreate(BaseModel):
+    modality: str = Field(pattern="^(sign|lip)$")
+    dataset: str = Field(min_length=1, max_length=200)
+    config: dict[str, Any] = Field(default_factory=dict)
+
+
+# ---- Diagnostics ----
+
+class DependencyCheck(BaseModel):
+    name: str
+    kind: str            # "python" | "binary"
+    available: bool
+    version: str | None = None
+    required_for: str
+
+
+class DiagnosticsReport(BaseModel):
+    dependencies: list[DependencyCheck]
+    offline_ok: bool
+    notes: list[str] = Field(default_factory=list)
+    timestamp: datetime

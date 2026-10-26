@@ -14,7 +14,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__
-from .api.routes import health
+from .api.routes import (
+    camera,
+    datasets,
+    diagnostics,
+    health,
+    models,
+    recognition,
+    settings,
+    training,
+)
 from .application import Application
 from .config import Settings, load_settings
 
@@ -53,6 +62,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.application = Application(settings)
     app.include_router(health.router)
+    app.include_router(settings.router)
+    app.include_router(models.router)
+    app.include_router(recognition.router)
+    app.include_router(camera.router)
+    app.include_router(datasets.router)
+    app.include_router(training.router)
+    app.include_router(diagnostics.router)
     return app
 
 

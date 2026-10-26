@@ -6,22 +6,14 @@ Health checks never load AI models.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter
 
 from ... import __version__
-from ...application import Application
 from ...schemas import SCHEMA_VERSION, AppStatus, HealthResponse, SystemMetrics
+from ..deps import AppDep
 
 router = APIRouter(prefix="/api/v1", tags=["health"])
-
-
-def get_application(request: Request) -> Application:
-    return request.app.state.application
-
-
-AppDep = Annotated[Application, Depends(get_application)]
 
 
 @router.get("/health", response_model=HealthResponse)

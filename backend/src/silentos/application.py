@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import platform
 import shutil
 import socket
@@ -11,7 +12,7 @@ import psutil
 
 from .config import Settings
 from .database import Database
-from .schemas import (
+from .schemas import (  # noqa: F401  (re-exported for routes)
     AppStatus,
     CameraState,
     ModelStatus,
@@ -19,6 +20,9 @@ from .schemas import (
     RuntimeState,
     SystemMetrics,
 )
+
+
+logger = logging.getLogger("silentos")
 
 
 def _now() -> datetime:
@@ -35,6 +39,7 @@ class Application:
         self.runtime_state = RuntimeState.STOPPED
         self.last_error: str | None = None
         self.frames_processed = 0
+        self._pending_restart: list[str] = []
         # Prime the CPU counter so the first reported value is a real measurement
         # over the process lifetime, not a fabricated zero.
         psutil.cpu_percent(interval=None)
@@ -82,3 +87,101 @@ class Application:
             platform=platform.platform(),
             timestamp=_now(),
         )
+
+    # ---- settings (persisted overrides) ----
+
+    def settings_view(self) -> dict:
+        s = self.settings
+        return {
+            "recognition_mode": s.recognition.mode,
+            "min_confidence": s.recognition.min_confidence,
+            "sign_threshold": s.fusion.sign_threshold,
+            "lip_threshold": s.fusion.lip_threshold,
+            "allow_single_modality": s.fusion.allow_single_modality,
+            "speech_enabled": s.output.speech_enabled,
+            "speech_cooldown_ms": s.output.speech_cooldown_ms,
+            "history_retention_days": s.output.history_retention_days,
+            "history_max_entries": s.output.history_max_entries,
+            "camera_provider": s.camera.provider,
+            "camera_target_width": s.camera.target_width,
+            "camera_target_height": s.camera.target_height,
+            "camera_target_fps": s.camera.target_fps,
+            "camera_video_path": s.camera.video_path,
+            "camera_device_index": s.camera.device_index,
+            "vocabulary": list(s.vocabulary.labels),
+            "abstain_label": s.vocabulary.abstain_label,
+            "requires_restart": self._pending_restart,
+        }
+
+    def apply_settings(self, update: dict) -> dict:
+        """Apply a validated partial update, persist it, report restart needs.
+
+        Camera provider/source changes take effect only on restart while the
+        capture runtime does not yet support hot-swap; we report that honestly
+        instead of silently ignoring it.
+        """
+        restart: list[str] = []
+        rec, fus, out, cam = self.settings.recognition, self.settings.fusion, self.settings.output, self.settings.camera
+        for key, value in update.items():
+            if value is None:
+                continue
+            if key == "recognition_mode":
+                rec.mode = value
+            elif key == "min_confidence":
+                rec.min_confidence = value
+            elif key == "sign_threshold":
+                fus.sign_threshold = value
+            elif key == "lip_threshold":
+                fus.lip_threshold = value
+            elif key == "allow_single_modality":
+                fus.allow_single_modality = value
+            elif key == "speech_enabled":
+                out.speech_enabled = value
+            elif key == "speech_cooldown_ms":
+                out.speech_cooldown_ms = value
+            elif key == "history_retention_days":
+                out.history_retention_days = value
+            elif key == "history_max_entries":
+                out.history_max_entries = value
+            elif key == "camera_provider":
+                if value != cam.provider:
+                    cam.provider = value
+                    restart.append("camera_provider")
+            elif key in ("camera_target_width", "camera_target_height", "camera_target_fps",
+                         "camera_video_path", "camera_device_index"):
+                field = key.removeprefix("camera_")
+                if getattr(cam, field) != value:
+                    setattr(cam, field, value)
+                    restart.append(key)
+        for r in restart:
+            if r not in self._pending_restart:
+                self._pending_restart.append(r)
+        # Persist only the fields that differ from YAML defaults.
+        self.db.set_setting("settings.overrides", self.settings.model_dump(mode="json"))
+        return self.settings_view()
+
+    def load_settings_overrides(self) -> None:
+        """Re-apply persisted overrides after process restart."""
+        stored = self.db.get_setting("settings.overrides")
+        if not stored:
+            return
+        try:
+            from .config import Settings
+            self.settings = Settings.model_validate(stored)
+        except Exception:  # corrupt/old overrides must never block startup
+            logger.warning("Discarding unreadable settings overrides")
+            return
+        # Everything in overrides is in effect after a restart.
+        self._pending_restart = []
+
+    # ---- recognition lifecycle (honest until Phase 3) ----
+
+    def start_recognition(self) -> str | None:
+        """Returns an error detail, or None on success."""
+        return (
+            "Recognition runtime not implemented yet (camera capture arrives in "
+            "Phase 3). No state change was made."
+        )
+
+    def stop_recognition(self) -> str | None:
+        return None  # already STOPPED; stopping a stopped runtime is a no-op
