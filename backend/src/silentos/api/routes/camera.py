@@ -113,8 +113,9 @@ def capabilities(app: AppDep) -> dict:
     return {
         "v4l2_devices": [{"device_path": p, "name": n} for p, n in devices],
         "note": (
-            "Detailed format/framerate probing arrives with the camera "
-            "providers (Phase 3); only kernel-reported device names are shown."
+            "Kernel-reported device names from /sys/class/video4linux. "
+            "Per-device format/framerate probing is not implemented — the "
+            "provider negotiates resolution at open time instead."
         ),
     }
 

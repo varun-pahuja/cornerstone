@@ -73,6 +73,7 @@ export interface CameraStatus {
   height: number | null;
   fps: number | null;
   frames_captured: number;
+  frames_dropped: number;
   last_frame_age_ms: number | null;
   error: string | null;
 }
@@ -150,6 +151,7 @@ export interface DatasetStats {
   manifests: number;
   by_class: Record<string, number>;
   by_modality: Record<string, number>;
+  by_split: Record<string, number>;
 }
 
 export interface TrainingJobInfo {
@@ -207,4 +209,49 @@ export interface RecognitionStatus {
   frames_processed: number;
   last_decision: Record<string, unknown> | null;
   latency_ms: number | null;
+}
+
+export interface ClipRecord {
+  clip_id: string;
+  dataset_id: string;
+  file: string;
+  label: string;
+  modality: string;
+  participant_id: string;
+  session_id: string;
+  lighting: string | null;
+  notes: string | null;
+  duration_s: number;
+  frames: number;
+  width: number;
+  height: number;
+  fps: number;
+  sha256: string;
+  split: string | null;
+  created_at: string;
+}
+
+export interface ValidationIssue {
+  clip_id: string;
+  file: string;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface ValidationReport {
+  dataset_id: string;
+  checked: number;
+  valid: number;
+  invalid: number;
+  issues: ValidationIssue[];
+  checked_at: string;
+}
+
+export interface SplitResult {
+  dataset_id: string;
+  seed: number;
+  ratios: Record<string, number>;
+  participants: Record<string, string>;
+  clip_counts: Record<string, number>;
+  warnings: string[];
 }

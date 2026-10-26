@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -250,6 +250,7 @@ class DatasetStats(BaseModel):
     manifests: int = 0
     by_class: dict[str, int] = Field(default_factory=dict)
     by_modality: dict[str, int] = Field(default_factory=dict)
+    by_split: dict[str, int] = Field(default_factory=dict)
 
 
 # ---- Training ----
@@ -288,3 +289,84 @@ class DiagnosticsReport(BaseModel):
     offline_ok: bool
     notes: list[str] = Field(default_factory=list)
     timestamp: datetime
+
+
+# ---- Dataset engine (Phase 4) ----
+
+class ClipMeta(BaseModel):
+    """Metadata required to register/record a clip."""
+
+    label: str = Field(min_length=1, max_length=64)
+    modality: Literal["sign", "lip"]
+    participant_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")
+    session_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")
+    lighting: str | None = Field(default=None, max_length=64)
+    notes: str | None = Field(default=None, max_length=500)
+    dataset_id: str = Field(default="default", pattern=r"^[A-Za-z0-9_-]{1,64}$")
+
+
+class ClipRecord(BaseModel):
+    clip_id: str
+    dataset_id: str
+    file: str                 # path relative to data root
+    label: str
+    modality: str
+    participant_id: str
+    session_id: str
+    lighting: str | None = None
+    notes: str | None = None
+    duration_s: float
+    frames: int
+    width: int
+    height: int
+    fps: float
+    sha256: str
+    split: str | None = None
+    created_at: str
+
+
+class ValidationIssue(BaseModel):
+    clip_id: str
+    file: str
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class ValidationReport(BaseModel):
+    dataset_id: str
+    checked: int
+    valid: int
+    invalid: int
+    issues: list[ValidationIssue] = Field(default_factory=list)
+    checked_at: datetime
+
+
+class DatasetManifest(BaseModel):
+    dataset_id: str
+    name: str
+    created_at: str
+    updated_at: str
+    clip_count: int
+    clips: list[ClipRecord]
+    splits: dict[str, Any] | None = None
+
+
+class SplitRequest(BaseModel):
+    seed: int = Field(default=42, ge=0, le=2**31 - 1)
+    train_ratio: float = Field(default=0.70, gt=0.0, lt=1.0)
+    val_ratio: float = Field(default=0.15, gt=0.0, lt=1.0)
+    # test_ratio = 1 - train - val (validated in the endpoint)
+
+
+class SplitResult(BaseModel):
+    dataset_id: str
+    seed: int
+    ratios: dict[str, float]
+    participants: dict[str, str]   # participant_id -> split name
+    clip_counts: dict[str, int]
+    warnings: list[str] = Field(default_factory=list)
+
+
+class RecordRequest(BaseModel):
+    seconds: float = Field(default=3.0, ge=0.5, le=10.0)
+    meta: ClipMeta

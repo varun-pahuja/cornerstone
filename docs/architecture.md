@@ -1,6 +1,6 @@
 # SilentOS — Architecture
 
-Status: **Phases 1–2 (foundation + dashboard) implemented.** This document describes the architecture as
+Status: **Phases 1–4 (foundation + dashboard + camera + datasets) implemented.** This document describes the architecture as
 built; sections marked *planned* are designed but not yet implemented. Last updated:
 2026-10-26.
 
@@ -37,6 +37,8 @@ settings; recognition keeps running if the browser closes.
 | `application.py` | ✅ | Central controller: owns real runtime state, builds `AppStatus`, collects **real** metrics via psutil (CPU, memory, disk, temperature when exposed; `null` → "Unavailable"). |
 | `api/routes/health.py` | ✅ | `GET /api/v1/health` (no model loading), `GET /api/v1/status`, `GET /api/v1/system/metrics`. |
 | `main.py` | ✅ | App factory `create_app()`, CORS for the dev origin, lifespan logging, `uvicorn silentos.main:app`; loads persisted settings overrides on startup. |
+| `camera/` | ✅ | Provider interface + 5 providers (mock, video_file, development_webcam, pi_camera, pi_usb_webcam), guarded Pi imports, `CameraManager` capture thread with bounded `deque(maxlen=1)` latest-frame buffer (stale frames dropped, `frames_dropped` counted). Live-verified against the physical webcam. See `docs/camera.md`. |
+| `dataset/` | ✅ | Validation (decode, duration 0.2–30 s, vocabulary, safe names), SHA-256 manifests, deterministic participant-based splits (no cross-split leakage, n<3 → train+warning), record-from-camera (bounded-buffer reads), multipart import, register-in-root, zip export. See `docs/datasets.md`. |
 | `registry.py` | ✅ | Model manifest scan shared by `/models` and `app_status` — status derived from artifacts on disk (NOT_TRAINED / ERROR / NOT_LOADED), never assumed. |
 | `api/routes/{settings,models,recognition,camera,datasets,training,diagnostics}.py` | ✅ | Phase 2 endpoints: validated settings PUT with persisted overrides + restart reporting; honest model status; history CRUD; real V4L2 discovery (`/sys/class/video4linux`); dataset stats counted from disk; training create rejected (409) until Phase 5; runtime dependency probes. |
 | camera, preprocessing, recognition, fusion, output, dataset, training | 🚧 planned Phases 3–8 | |

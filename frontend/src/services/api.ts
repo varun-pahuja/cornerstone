@@ -7,8 +7,11 @@ import type {
   AppStatus,
   CameraInfo,
   CameraStatus,
+  ClipRecord,
   DatasetStats,
   DatasetSummary,
+  SplitResult,
+  ValidationReport,
   DiagnosticsReport,
   HealthResponse,
   HistoryPage,
@@ -40,7 +43,10 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = 10_000):
     const res = await fetch(`${BASE}${path}`, {
       ...init,
       signal: controller.signal,
-      headers: { "Content-Type": "application/json", ...init?.headers },
+      headers: {
+        ...(typeof init?.body === "string" ? { "Content-Type": "application/json" } : {}),
+        ...init?.headers,
+      },
     });
     if (!res.ok) {
       let detail = res.statusText;
@@ -96,11 +102,26 @@ export const api = {
     ),
   updateCameraConfig: (body: SettingsUpdate) =>
     request<SettingsView>("/camera/config", { method: "PUT", body: JSON.stringify(body) }),
-  cameraStart: () => request<{ detail?: string }>("/camera/start", { method: "POST" }),
+  cameraStart: () => request<CameraStatus>("/camera/start", { method: "POST" }),
+  cameraStop: () => request<CameraStatus>("/camera/stop", { method: "POST" }),
 
   // datasets
   datasets: () => request<DatasetSummary[]>("/datasets"),
   datasetStats: () => request<DatasetStats>("/datasets/stats"),
+  recordClip: (body: { seconds: number; meta: Record<string, unknown> }) =>
+    request<ClipRecord>("/datasets/record", { method: "POST", body: JSON.stringify(body) }),
+  importClip: (form: FormData) =>
+    request<ClipRecord>("/datasets/import", { method: "POST", body: form }, 60_000),
+  validateDataset: (id: string) =>
+    request<ValidationReport>(`/datasets/${id}/validate`, { method: "POST" }, 60_000),
+  generateSplits: (id: string, body: { seed: number; train_ratio?: number; val_ratio?: number }) =>
+    request<SplitResult>(`/datasets/${id}/splits`, { method: "POST", body: JSON.stringify(body) }),
+  splitsStatus: (id: string) =>
+    request<{ dataset_id: string; splits: Record<string, unknown> | null }>(
+      `/datasets/${id}/splits`,
+    ),
+  exportUrl: (id: string, includeClips = true) =>
+    `${BASE}/datasets/${id}/export?include_clips=${includeClips}`,
 
   // training
   trainingJobs: () => request<TrainingJobInfo[]>("/training/jobs"),

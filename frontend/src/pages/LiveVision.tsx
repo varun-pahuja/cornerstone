@@ -1,30 +1,96 @@
-import { useState } from "react";
-import { Camera, CameraOff, Plug } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Camera, CameraOff, Plug, Square } from "lucide-react";
 import { api, ApiError } from "../services/api";
 import { usePoll } from "../hooks/usePoll";
 import { Card, Empty, LoadError, Row } from "../components/ui/Card";
 import { StatusBadge } from "../components/ui/StatusBadge";
 
+/** Refreshes an <img> from the bounded JPEG endpoint while the camera runs. */
+function FramePreview({ active }: { active: boolean }) {
+  const [tick, setTick] = useState(0);
+  const [failedTick, setFailedTick] = useState(-1);
+  const failed = failedTick === tick;
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => setTick((t) => t + 1), 400);
+    return () => clearInterval(id);
+  }, [active]);
+
+  if (!active) {
+    return (
+      <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 border border-dashed border-line bg-rail">
+        <CameraOff size={32} className="text-ink-faint" aria-hidden />
+        <div className="text-center">
+          <p className="text-[13px] text-ink-soft">No camera connected</p>
+          <p className="mt-1 text-[12px] text-ink-faint">
+            Nothing is rendered until a real source produces frames. No placeholder video.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden border border-line bg-rail">
+      {failed ? (
+        <div className="text-center">
+          <p className="text-[13px] text-ink-soft">Frame unavailable</p>
+          <p className="mt-1 text-[12px] text-ink-faint">The preview endpoint returned no frame.</p>
+        </div>
+      ) : (
+        <img
+          ref={imgRef}
+          key={tick}
+          src={`/api/v1/camera/frame.jpg?ts=${tick}`}
+          alt="Live camera frame"
+          className="h-full w-full object-contain"
+          onError={() => setFailedTick(tick)}
+        />
+      )}
+      <span className="data absolute bottom-2 right-2 border border-line bg-panel/90 px-1.5 py-0.5 text-[10px] text-ink-soft">
+        ~2.5 fps preview · recognition path gets every frame
+      </span>
+    </div>
+  );
+}
+
 export default function LiveVision() {
   const cameras = usePoll(() => api.cameras(), 15_000);
-  const camStatus = usePoll(() => api.cameraStatus(), 5_000);
+  const camStatus = usePoll(() => api.cameraStatus(), 2_000);
   const caps = usePoll(() => api.cameraCapabilities(), 60_000);
   const [msg, setMsg] = useState<string | null>(null);
-  const [selected, setSelected] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+
+  const st = camStatus.data;
+  const connected = st?.state === "CONNECTED";
 
   async function handleStart() {
     setMsg(null);
+    setBusy(true);
     try {
       await api.cameraStart();
-      camStatus.refresh();
     } catch (err) {
-      // Backend refuses honestly until Phase 3 — show its exact reason.
       setMsg(err instanceof ApiError ? err.message : "Backend unreachable");
+    } finally {
+      setBusy(false);
+      camStatus.refresh();
     }
   }
 
-  const st = camStatus.data;
-  const available = (cameras.data ?? []).filter((c) => c.available);
+  async function handleStop() {
+    setMsg(null);
+    setBusy(true);
+    try {
+      await api.cameraStop();
+    } catch (err) {
+      setMsg(err instanceof ApiError ? err.message : "Backend unreachable");
+    } finally {
+      setBusy(false);
+      camStatus.refresh();
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -32,16 +98,33 @@ export default function LiveVision() {
         <h1 className="text-xl font-semibold tracking-tight">Live Vision</h1>
         <div className="flex items-center gap-2">
           {st && (
-            <StatusBadge tone={st.state === "CONNECTED" ? "ok" : "neutral"}>{st.state}</StatusBadge>
+            <StatusBadge
+              tone={connected ? "ok" : st.state === "ERROR" || st.state === "UNAVAILABLE" ? "danger" : "neutral"}
+            >
+              {st.state}
+            </StatusBadge>
           )}
-          <button
-            type="button"
-            onClick={handleStart}
-            className="inline-flex items-center gap-1.5 border border-line px-3 py-1.5 text-[13px] hover:bg-paper"
-          >
-            <Camera size={14} aria-hidden />
-            Start camera
-          </button>
+          {connected ? (
+            <button
+              type="button"
+              onClick={handleStop}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 border border-danger/40 bg-danger-soft px-3 py-1.5 text-[13px] text-danger disabled:opacity-50"
+            >
+              <Square size={14} aria-hidden />
+              Stop camera
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleStart}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 border border-line px-3 py-1.5 text-[13px] hover:bg-paper disabled:opacity-50"
+            >
+              <Camera size={14} aria-hidden />
+              {busy ? "Starting…" : "Start camera"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -53,21 +136,7 @@ export default function LiveVision() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card title="Preview" className="lg:col-span-2">
-          <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 border border-dashed border-line bg-rail">
-            <CameraOff size={32} className="text-ink-faint" aria-hidden />
-            {st?.state === "CONNECTED" ? (
-              <p className="text-[13px] text-ink-soft">
-                Connected — frame preview streams here once Phase 3 delivers frames.
-              </p>
-            ) : (
-              <div className="text-center">
-                <p className="text-[13px] text-ink-soft">No camera connected</p>
-                <p className="mt-1 text-[12px] text-ink-faint">
-                  Nothing is rendered until a real source produces frames. No placeholder video.
-                </p>
-              </div>
-            )}
-          </div>
+          <FramePreview active={connected} />
         </Card>
 
         <div className="space-y-4">
@@ -75,15 +144,21 @@ export default function LiveVision() {
             {st ? (
               <>
                 <Row label="State" value={st.state} />
-                <Row label="Provider" value={st.provider} />
-                <Row label="Resolution" value={st.width && st.height ? `${st.width}×${st.height}` : "Unavailable"} />
+                <Row label="Provider" value={st.provider ?? "—"} />
+                <Row
+                  label="Resolution"
+                  value={st.width && st.height ? `${st.width}×${st.height}` : "Unavailable"}
+                />
                 <Row label="FPS" value={st.fps ?? "Unavailable"} />
                 <Row label="Frames captured" value={st.frames_captured} />
+                <Row label="Stale frames dropped" value={st.frames_dropped} />
                 <Row
                   label="Last frame age"
                   value={st.last_frame_age_ms !== null ? `${st.last_frame_age_ms} ms` : "Unavailable"}
                 />
-                {st.error && <Row label="Error" value={<span className="text-danger">{st.error}</span>} />}
+                {st.error && (
+                  <Row label="Error" value={<span className="text-danger">{st.error}</span>} />
+                )}
               </>
             ) : (
               <LoadError error={camStatus.error} loading={camStatus.loading} />
@@ -94,35 +169,27 @@ export default function LiveVision() {
             {cameras.loading && !cameras.data ? (
               <LoadError error={cameras.error} loading />
             ) : (
-              <div className="space-y-3">
-                <select
-                  className="w-full border border-line bg-paper px-2.5 py-1.5 text-[13px]"
-                  value={selected}
-                  onChange={(e) => setSelected(e.target.value)}
-                >
-                  <option value="">Select a source…</option>
-                  {available.map((c) => (
-                    <option key={c.provider} value={c.provider}>
+              <ul className="space-y-1.5">
+                {(cameras.data ?? []).map((c) => (
+                  <li key={c.provider} className="flex items-start justify-between gap-2 text-[12px]">
+                    <span className="text-ink-soft">
                       {c.label}
-                    </option>
-                  ))}
-                </select>
-                <ul className="space-y-1.5">
-                  {(cameras.data ?? []).map((c) => (
-                    <li key={c.provider} className="flex items-start justify-between gap-2 text-[12px]">
-                      <span className="text-ink-soft">
-                        {c.label}
-                        {c.device_path && <span className="data block text-ink-faint">{c.device_path}</span>}
-                        {c.detail && <span className="block text-ink-faint">{c.detail}</span>}
-                      </span>
-                      <StatusBadge tone={c.available ? "ok" : "neutral"}>
-                        {c.available ? "available" : "unavailable"}
-                      </StatusBadge>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                      {c.device_path && (
+                        <span className="data block text-ink-faint">{c.device_path}</span>
+                      )}
+                      {c.detail && <span className="block text-ink-faint">{c.detail}</span>}
+                    </span>
+                    <StatusBadge tone={c.available ? "ok" : "neutral"}>
+                      {c.available ? "available" : "unavailable"}
+                    </StatusBadge>
+                  </li>
+                ))}
+              </ul>
             )}
+            <p className="mt-2 text-[11px] text-ink-faint">
+              Switch sources under Device Settings → Camera; provider changes need a backend
+              restart.
+            </p>
           </Card>
         </div>
       </div>

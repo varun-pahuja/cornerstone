@@ -18,10 +18,8 @@ frontend/.vite/
 .env
 *.local
 
-# Data & models (large binaries, personal recordings)
-data/raw/*
-data/processed/*
-data/annotations/*
+# Data & models (large binaries, personal recordings, derived manifests/splits)
+data/
 !data/**/README.md
 models/development/*
 models/deployment/*
@@ -33,6 +31,9 @@ models/deployment/*
 
 # Recordings
 *.mp4
+*.avi
+*.mov
+*.webm
 *.avi
 *.mkv
 *.webm

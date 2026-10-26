@@ -221,7 +221,7 @@ def test_camera_capabilities_reports_real_devices_only(client: TestClient):
     for d in body["v4l2_devices"]:
         assert d["device_path"].startswith("/dev/video")
         assert d["name"]
-    assert "Phase 3" in body["note"]
+    assert "video4linux" in body["note"]
 
 
 # ---- datasets ----
