@@ -1,0 +1,52 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Environment
+.env
+*.local
+
+# Data & models (large binaries, personal recordings)
+data/raw/*
+data/processed/*
+data/annotations/*
+!data/**/README.md
+models/development/*
+models/deployment/*
+!models/**/README.md
+*.onnx
+*.tflite
+*.pt
+*.pth
+
+# Recordings
+*.mp4
+*.avi
+*.mkv
+*.webm
+!tests/fixtures/**/*.mp4
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp

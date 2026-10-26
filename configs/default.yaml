@@ -1,0 +1,65 @@
+# SilentOS default configuration
+# Overridden by development.yaml or raspberry_pi.yaml
+
+app:
+  name: SilentOS
+  env: production
+
+api:
+  host: 127.0.0.1
+  port: 8000
+
+paths:
+  data_dir: ./data
+  models_dir: ./models
+  raw_dir: ./data/raw
+  processed_dir: ./data/processed
+  annotations_dir: ./data/annotations
+  manifests_dir: ./data/manifests
+  splits_dir: ./data/splits
+
+vocabulary:
+  - HELP
+  - WATER
+  - FOOD
+  - PAIN
+  - YES
+  - NO
+  - STOP
+  - DOCTOR
+  - TOILET
+  - THANK YOU
+abstain_label: "PLEASE REPEAT"
+
+camera:
+  provider: video_file   # video_file | mock | development_webcam | pi_camera | pi_usb_webcam
+  target_width: 640
+  target_height: 480
+  target_fps: 15
+  video_path: null
+  device_index: 0
+  frame_queue_size: 4
+
+recognition:
+  mode: both              # sign | lip | both
+  sequence_length: 16
+  inference_interval_ms: 200
+  min_confidence: 0.6
+
+fusion:
+  sign_threshold: 0.6
+  lip_threshold: 0.6
+  allow_single_modality: false
+  max_prediction_age_ms: 1500
+  decision_cooldown_ms: 1500
+
+output:
+  speech_enabled: false
+  speech_cooldown_ms: 3000
+  history_retention_days: 30
+  history_max_entries: 10000
+
+logging:
+  level: INFO
+  max_bytes: 1048576
+  backup_count: 3

@@ -1,0 +1,26 @@
+# Raspberry Pi 4 GB runtime
+app:
+  env: production
+
+api:
+  host: 127.0.0.1
+  port: 8000
+
+camera:
+  provider: pi_usb_webcam   # or pi_camera
+  target_width: 320
+  target_height: 240
+  target_fps: 10
+  frame_queue_size: 2
+
+recognition:
+  sequence_length: 12
+  inference_interval_ms: 300
+
+output:
+  speech_enabled: true
+
+logging:
+  level: INFO
+  max_bytes: 524288
+  backup_count: 2

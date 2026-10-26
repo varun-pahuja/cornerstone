@@ -1,0 +1,17 @@
+# Development on Arch Linux laptop
+app:
+  env: development
+
+api:
+  host: 127.0.0.1
+  port: 8000
+
+camera:
+  provider: video_file
+  target_width: 640
+  target_height: 480
+  target_fps: 15
+  video_path: null
+
+logging:
+  level: DEBUG
