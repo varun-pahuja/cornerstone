@@ -1,78 +1,197 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-/*
- * SilentOS — "Industrial Utilitarian" design tokens.
- * Calm assistive-tech console: restrained neutrals, one deep-teal accent,
- * thin borders, tabular numerals for measurements.
- */
+@custom-variant dark (&:is(.dark *));
+
+/* ==========================================================================
+   SilentOS — "Obsidian Instrument" design system
+   Dark warm-charcoal canvas · layered graphite surfaces · hairline borders ·
+   one teal-mint accent · Newsreader display + IBM Plex Sans + IBM Plex Mono.
+   Research + rationale: docs/design_research.md (2026-10-27 pass).
+   ========================================================================== */
+
+/* ---- Bundled fonts (offline deployment — no runtime CDN) ---------------- */
+
+@font-face {
+  font-family: "Newsreader";
+  src: url("../assets/fonts/newsreader-400_600.woff2") format("woff2");
+  font-weight: 400 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("../assets/fonts/ibm-plex-sans-400.woff2") format("woff2");
+  font-weight: 400 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("../assets/fonts/ibm-plex-mono-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("../assets/fonts/ibm-plex-mono-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---- Tokens -------------------------------------------------------------- */
 
 @theme {
-  /* Surfaces */
-  --color-paper: #f5f5f3;        /* app background, warm off-white */
-  --color-panel: #ffffff;        /* cards / content */
-  --color-rail: #16181d;         /* navigation rail, near-black */
-  --color-rail-hover: #22252c;
+  /* Surfaces — depth by layering, not shadow */
+  --color-canvas: #0d0e10; /* application background */
+  --color-rail: #101113; /* navigation rail */
+  --color-rail-hover: #1a1d21; /* rail hover */
+  --color-panel: #141619; /* cards / content surface */
+  --color-elevated: #1a1d21; /* raised surface, inputs, table head */
+  --color-overlay: #202329; /* dialogs, popovers */
 
   /* Text */
-  --color-ink: #16181d;          /* primary text */
-  --color-ink-soft: #55595f;     /* secondary text */
-  --color-ink-faint: #85898f;    /* muted text / labels */
+  --color-ink: #e8e6e1; /* primary — warm off-white */
+  --color-ink-soft: #a4a6ab; /* secondary */
+  --color-ink-faint: #828791; /* muted labels (>=4.5:1 on panel) */
 
   /* Lines */
-  --color-line: #e3e3df;         /* standard 1px border */
-  --color-line-strong: #c9c9c4;  /* emphasized border */
-  --color-line-dark: #2a2d34;    /* borders on dark rail */
+  --color-line: #24272c; /* standard hairline */
+  --color-line-strong: #33373d; /* emphasized hairline */
+  --color-line-dark: #1e2126; /* hairline on rail */
 
-  /* Accent — single deep teal, used for primary actions & active state */
-  --color-accent: #0f766e;       /* teal-700 */
-  --color-accent-hover: #115e59; /* teal-800 */
-  --color-accent-soft: #ccfbf1;  /* teal-100 tint for selected rows */
+  /* Accent — single teal-mint family (SilentOS continuity) */
+  --color-primary: #2dd4bf;
+  --color-primary-hover: #5eead4;
+  --color-primary-soft: #0f2422; /* dark tint for active rows/badges */
+  --color-primary-fg: #062421; /* text on primary */
 
-  /* Status — restrained, semantic only */
-  --color-ok: #15803d;           /* green-700 */
-  --color-ok-soft: #dcfce7;
-  --color-warn: #a16207;         /* amber-700 */
-  --color-warn-soft: #fef9c3;
-  --color-danger: #b91c1c;       /* red-700 */
-  --color-danger-soft: #fee2e2;
-  --color-info: #1d4ed8;         /* blue-700 */
-  --color-info-soft: #dbeafe;
+  /* Status — semantic, restrained, never color-only (dot + text always) */
+  --color-ok: #4ec98a;
+  --color-ok-soft: #11251b;
+  --color-warn: #e5b454;
+  --color-warn-soft: #2a2210;
+  --color-danger: #f07167;
+  --color-danger-soft: #2b1618;
+  --color-info: #8aa4f0;
+  --color-info-soft: #171d2e;
 
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono",
-    Menlo, Consolas, monospace;
+  /* shadcn-compatible aliases (installed component source expects these) */
+  --color-background: #0d0e10;
+  --color-foreground: #e8e6e1;
+  --color-card: #141619;
+  --color-card-foreground: #e8e6e1;
+  --color-popover: #202329;
+  --color-popover-foreground: #e8e6e1;
+  --color-primary-foreground: #062421;
+  --color-secondary: #1a1d21;
+  --color-secondary-foreground: #e8e6e1;
+  --color-muted: #1a1d21;
+  --color-muted-foreground: #a4a6ab;
+  --color-accent: #1c2025; /* subtle hover tint (NOT the brand color) */
+  --color-accent-foreground: #e8e6e1;
+  --color-destructive: #f07167;
+  --color-destructive-foreground: #0d0e10;
+  --color-border: #24272c;
+  --color-input: #24272c;
+  --color-ring: #2dd4bf;
+  --color-chart-1: #2dd4bf;
+  --color-chart-2: #e5b454;
+  --color-chart-3: #8aa4f0;
+  --color-chart-4: #4ec98a;
+  --color-chart-5: #c78ae0;
+
+  /* Type */
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-display: "Newsreader", Georgia, serif;
+
+  /* Geometry — sharp instrument edges, not rounded-lg templates */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  /* Depth — overlays only; panels use hairlines */
+  --shadow-overlay: 0 16px 48px rgb(0 0 0 / 0.55);
+  --shadow-pop: 0 8px 24px rgb(0 0 0 / 0.4);
+
+  /* Bare aliases — some installed component sources read these directly */
+  --radius: 0.625rem;
+  --border: #24272c;
+  --foreground: #e8e6e1;
+  --popover: #202329;
+  --popover-foreground: #e8e6e1;
+  --secondary: #1a1d21;
+
+  /* Motion */
+  --ease-instrument: cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
 html {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 body {
-  background: var(--color-paper);
+  background: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* Measurements, IDs and timestamps align in columns */
+::selection {
+  background: color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+
+/* Dark scrollbars, proportionate to the instrument chrome */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+  border: 3px solid var(--color-canvas);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Measurements, IDs, timestamps align in columns */
 .data {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
-/* Small uppercase section labels — the industrial-console voice */
+/* Uppercase mono section labels — the instrument voice */
 .label {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--color-ink-faint);
 }
 
+/* Editorial display — page titles only, never body copy */
+.display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
 /* Keyboard focus — always visible, never suppressed */
 :focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-ring);
   outline-offset: 2px;
 }
 
@@ -83,5 +202,20 @@ body {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+
+
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
   }
 }

@@ -111,3 +111,97 @@ and not an AI landing page.
 - Honest states: every metric renders `Unavailable` when the backend returns `null`;
   placeholder pages state their phase instead of rendering fake controls; `DEMO/SIMULATED`
   will be used only when simulation is genuinely active.
+
+---
+
+# Visual redesign research — 2026-10-27
+
+Mandated full-research redesign pass. The eight specified sources were re-fetched live
+(this session) plus additional template/typography research. Findings below drove the
+implementation that follows this document's Phase-1 section.
+
+## Sources actually inspected this pass
+
+| Source | Live inspection | What was taken |
+|---|---|---|
+| reactbits.dev | Fetched: component catalog (text animations, backgrounds, micro-interactions, components) | **Nothing installed.** Decorative/animated-page vocabulary (beams, gradient text) conflicts with the spec's AI-slop bans. Listed as rejected evidence. |
+| 21st.dev | Fetched: registry model — shadcn-registry-format, "one command installs source you own", themes/templates catalog | Confirms shadcn CLI as the integration route (official install method, source lands in repo, adapts to existing tokens). No premium/paid components used. |
+| ui.shadcn.com | Fetched: docs, components list, dashboard examples (light+dark reference) | **Adopted for primitives**: official `shadcn` CLI used to install component *source* (tabs, tooltip, dialog, progress, select, switch, slider, table, skeleton, sonner) — then re-tokenized to the SilentOS palette. |
+| radix-ui.com | Fetched: Themes 3.0, Primitives, Icons, Colors docs | Primitives come in via shadcn (Radix under the hood) for accessible tabs/dialogs/selects/tooltips. **Radix Themes not installed** — it would impose its own visual system. |
+| ui.aceternity.com | Fetched: 118+ components, 183 blocks (shaders, 3D cards, glass, marquee, sparkles) | **Rejected wholesale** — landing-page flash aesthetic; spec explicitly bans glassmorphism, gradient blobs, glow, sparkles. Evidence of what NOT to do. |
+| motion.dev | Fetched: docs, Motion UI components, 14.x changelog | **Not installed.** Core interactions are achievable with CSS transitions (spec: motion only for state/feedback). Re-evaluate only if a real state transition needs choreography. Keeps bundle lean for the Pi. |
+| lucide.dev | Fetched: v1.61.0, 1908 icons, customization, ISC license | **Single icon family** (already installed). Stroke-width/size standardized for the new shell. |
+| iconify.design | Fetched: 300k icons, multi-set API | **Not used** — aggregator invites mixed icon styles; offline-first favours bundled Lucide. |
+
+## Additional research (dark tool UIs, typography, templates)
+
+- **Linear's design system write-ups** (linear.app/now/how-we-redesigned-the-linear-ui and
+  published DESIGN.md breakdowns): layered graphite surfaces, hairline borders instead of
+  shadows, serif reserved for rare editorial moments, dense-but-quiet navigation.
+- **Vercel Geist / dashboard analyses** (shadcn.io/design/vercel, blakecrosley.com guide):
+  monospace for measurements and status, ruthless information density, functional empty
+  states, restraint in color.
+- **Stripe/Linear/Vercel craft article** (mantlr.com): typography-as-brand, interaction
+  density, crafted microstates — the invariant "premium tool" decisions.
+- **Tabler UI kit docs** (docs.tabler.io): dashboard structure reference (kept at pattern
+  level only; Bootstrap kit not usable in a Tailwind v4 app).
+- **Assistive-technology framing**: camera/computer-vision products (vision workstations)
+  put the brightest element on screen = the video frame → dark canvas is the correct
+  hierarchy for a vision console, not a stylistic whim.
+- **Fonts**: Google Fonts (OFL) fetched as static woff2 and bundled under
+  `frontend/src/assets/fonts/` — no runtime CDN (offline deployment on the Pi).
+  Newsreader (variable 400–600, serif display), IBM Plex Sans (variable, UI),
+  IBM Plex Mono (400/500, data). Total ≈ 190 KB after dedup.
+
+## Three directions compared (Step 3)
+
+**A — Obsidian Instrument.** Warm charcoal canvas (#0d0e10), layered graphite panels with
+hairline borders, warm off-white ink, single teal-mint accent (continuity with SilentOS's
+Phase-1 teal), semantic amber/coral/blue, Newsreader serif page titles, Plex Sans UI,
+Plex Mono data. Instrument-like meters, restrained lime-free status color.
+
+**B — Warm Clinical Editorial.** Ivory ground, ink type, forest-green accent, stone
+surfaces, serif display + sans UI. Elegant and calm, but a light ground competes with
+video frames for brightness (wrong hierarchy for a camera product), and the direction
+drifts toward "wellness brand" rather than "communication instrument".
+
+**C — Modern Research Console.** Graphite-blue ground, cool neutrals, cobalt accent,
+all-mono numerics. Technical but reads as a generic developer/GitHub-adjacent tool —
+lowest differentiation against the "unmodified admin template" failure mode.
+
+**Chosen: A — Obsidian Instrument.**
+Why: (1) the camera frame must be the brightest thing in a vision product — dark canvas
+gives it primacy; (2) the instrument metaphor matches the product language already in the
+code ("communication console", telemetry, calibration); (3) the teal-mint accent preserves
+brand continuity instead of introducing an arbitrary new color; (4) serif titles + mono
+data give the required editorial/technical contrast and a differentiating anchor that a
+default shadcn admin never has.
+DFII (frontend-design skill): Impact 4, Fit 5, Feasibility 5, Performance 4,
+Consistency risk 2 → **16** (execute fully).
+
+## Design system summary (tokens live in `frontend/src/styles/globals.css`)
+
+- Surfaces: canvas `#0d0e10` → rail `#101113` → panel `#141619` → elevated `#1a1d21`;
+  hairlines `#24272c` / `#33373d` (no shadows except overlays).
+- Text: ink `#e8e6e1`, ink-soft `#a4a6ab`, ink-faint `#828791` (≥4.5:1 on panel).
+- Accent: teal `#2dd4bf` (hover `#14b8a6`) — primary actions, active nav, live state.
+- Semantic: ok `#4ec98a`, warn `#e5b454`, danger `#f07167`, info `#8aa4f0`, each with a
+  dark tinted soft background; never color-only signaling (dot + text always present).
+- Type: Newsreader (page titles/display), IBM Plex Sans 400/500/600 (UI), IBM Plex Mono
+  (measurements, IDs, timestamps, tabular-nums). Scale: 11/12/13/14/16/20/28/36.
+- Geometry: radius 4/6/10 (sharp instrument feel — not the rounded-lg template look);
+  4px spacing rhythm; borders over shadows; max content width 1480px.
+- Motion: 120–160 ms ease-out for state changes; global `prefers-reduced-motion` guard.
+
+## Deliberately rejected (evidence-backed)
+
+- Aceternity/React Bits decorative effects: gradient blobs, beams, glassmorphism, sparkles,
+  marquee, 3D cards — all named as AI-slop bans in the redesign spec.
+- Radix Themes kit and shadcn default theme: would replace, not adapt, our tokens.
+- Inter/system defaults: flagged as generic by the frontend-design skill; replaced with
+  bundled Newsreader + IBM Plex.
+- A second accent color family: spec requires one primary neutral + one accent family;
+  lime was dropped so teal-mint stays the single accent.
+- Fake charts for CPU/memory: the backend reports point-in-time metrics only — sparklines
+  would imply a history that does not exist. Charts appear only for real training curves
+  parsed from job logs.

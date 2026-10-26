@@ -12,7 +12,7 @@ export function Card({
   actions?: React.ReactNode;
 }) {
   return (
-    <section className={cn("border border-line bg-panel", className)}>
+    <section className={cn("rounded-md border border-line bg-panel", className)}>
       <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2.5">
         <h2 className="label">{title}</h2>
         {actions}
@@ -26,13 +26,13 @@ export function Row({ label, value }: { label: string; value: React.ReactNode })
   return (
     <div className="flex items-baseline justify-between gap-4 border-b border-line/60 py-2 last:border-0">
       <span className="text-[13px] text-ink-soft">{label}</span>
-      <span className="data text-right text-[13px] font-medium">{value}</span>
+      <span className="data text-right text-[13px] font-medium text-ink">{value}</span>
     </div>
   );
 }
 
 export function Empty({ text }: { text: string }) {
-  return <p className="text-[13px] text-ink-faint">{text}</p>;
+  return <p className="text-[13px] leading-relaxed text-ink-faint">{text}</p>;
 }
 
 export function LoadError({ error, loading }: { error: string | null; loading: boolean }) {
