@@ -36,17 +36,21 @@ Updated: 2026-10-27
 ## Phase 6 — Silent-lip recognition
 - [x] `lip/` mirroring `sign/` (MediaPipe FaceLandmarker, 478 landmarks, features/model/train/pipeline)
 - [x] Wire lip into training API (remove 501) with same honesty rules
-- [x] Tests updated/green (83 passing)
+- [x] Tests updated/green
 
 ## Phase 7 — Confidence-aware fusion
-- [ ] `fusion/` module (modality weights, confidence thresholds, abstain rules)
-- [ ] Integrate fusion into `/api/v1/recognition/*` (predictions/history)
-- [ ] Fusion tests + docs
+- [x] `fusion/` (FusionEngine + fuse_predictions, weights, policy)
+- [x] Live recognition loop in Application (camera frames → sign/lip pipelines → fusion → history)
+- [x] `/api/v1/recognition/status` surfaces fused `last_decision` + real `latency_ms`
+- [x] Start/stop lifecycle wired (idempotent, honest 503 when no models)
+- [x] `test_fusion.py` (10 tests) — total 93 backend tests passing
 
 ## Phase 8 — Text/speech output
-- [ ] `output/` (espeak-ng or offline TTS) + speech controls
-- [ ] Wire to fused decisions
-- [ ] Output settings + tests
+- [x] `output/speech.py` (`SpeechEngine`, `speak_decision`) — espeak-ng wrapper, honest unavailable detection, cooldown, thread-safe
+- [x] Wired into recognition loop: speaks accepted fused labels when `speech_enabled`
+- [x] Honest `last_message` when speech enabled but espeak-ng missing
+- [x] `test_speech.py` (5 tests) — total 98 backend tests passing
+- [x] Live smoke: enable/disable speech, diagnostics probe shows `espeak-ng False`
 
 ## Phase 9 — Calibration API + deployment
 - [ ] Calibration endpoints + UI wiring

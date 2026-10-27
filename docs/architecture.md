@@ -1,7 +1,6 @@
 # SilentOS — Architecture
 
-Status: **Phases 1–6 complete; Phase 5 sign training live + Phase 6 silent-lip training live (dataset → landmarks → baseline →
-export + training-jobs API with daemon worker, `{ts,line}` logs, cancellation, restart reconcile). Live inference in the recognition runtime is not wired yet (Phase 7 integration); confidence fusion is Phase 7, output is Phase 8, calibration/deploy Phase 9. 83 backend tests passing.** This document describes the architecture as
+Status: **Phases 1–8 complete; Phase 5 sign training live + Phase 6 silent-lip training live + Phase 7 live recognition runtime wired + Phase 8 speech output (`SpeechEngine` speaks accepted fused labels when enabled, honest espeak-ng unavailable detection). Calibration/deploy is Phase 9. 98 backend tests passing.** This document describes the architecture as
 built; sections marked *planned* are designed but not yet implemented. Last updated:
 2026-10-27.
 
@@ -47,7 +46,9 @@ settings; recognition keeps running if the browser closes.
 | `api/routes/{settings,models,recognition,camera,datasets,diagnostics}.py` | ✅ | Phase 2 endpoints: validated settings PUT with persisted overrides + restart reporting; honest model status; history CRUD; real V4L2 discovery (`/sys/class/video4linux`); dataset stats counted from disk; runtime dependency probes. |
 | `sign/` | ✅ | Phase 5: MediaPipe `HandExtractor` (guarded imports, VIDEO-mode timestamps), wrist-relative + scale-invariant features (2016-dim, 32-frame resample), seed-deterministic `LogisticBaseline` (npz + ONNX export `(X−μ)/σ`, parity-tested), `train_sign` with honest per-split evaluation, `validate_request` shared precheck, `SignRecognizer` buffer. |
 | `lip/` | ✅ | Phase 6: MediaPipe `FaceLandmarker` (guarded imports), lip features (478×3 → normalized 32-frame, 45888-dim), seed-deterministic `LogisticBaseline` (npz + ONNX), `train_lip` with honest evaluation, `LipRecognizer` buffer. |
-| recognition runtime, fusion, output | 🚧 planned Phases 7–8 | |
+| `fusion/` | ✅ | Phase 7: `FusionEngine` + `fuse_predictions` (weighted confidence, agreement boost, abstain below `min_confidence`), `FusionPolicy`/`FusionWeights`. |
+| `output/` | ✅ | Phase 8: `SpeechEngine` (espeak-ng wrapper, cooldown, thread-safe) + `speak_decision`; wired into recognition loop; honest unavailable detection. |
+| recognition runtime, calibration | 🚧 planned Phase 9 | Live loop + speech wired; calibration/deploy pending. |
 
 Security as built: binds `127.0.0.1` by default; no shell-execution endpoints; filesystem
 access will be restricted to configured directories (validated identifiers, not raw paths).

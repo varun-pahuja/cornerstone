@@ -25,6 +25,7 @@ from .schemas import (  # noqa: F401  (re-exported for routes)
     SystemMetrics,
 )
 from .fusion import FusionEngine, FusionPolicy, FusionWeights
+from .output import SpeechEngine
 
 
 logger = logging.getLogger("silentos")
@@ -51,6 +52,7 @@ class Application:
         psutil.cpu_percent(interval=None)
         # Fusion + live recognizers (Phase 7)
         self._fusion_engine: FusionEngine | None = None
+        self._speech = SpeechEngine(cooldown_ms=settings.output.speech_cooldown_ms)
         self._sign_recognizer = None
         self._lip_recognizer = None
         self._last_decision = None
@@ -187,6 +189,14 @@ class Application:
                     "latency_ms": latency_ms,
                     "ts": _now(),
                 }
+                if not decision.abstained and decision.label is not None:
+                    from .output import speak_decision
+                    speak_decision(
+                        self._speech,
+                        decision.label,
+                        self.settings.vocabulary.abstain_label,
+                        self.settings.output.speech_enabled,
+                    )
 
             self._recognition_stop.wait(interval_s)
 
@@ -224,6 +234,7 @@ class Application:
             "confidence": dec.confidence,
             "sources": dec.sources,
             "scores": dec.scores,
+            "latency_ms": raw["latency_ms"],
         }
 
     def app_status(self) -> AppStatus:
@@ -235,7 +246,11 @@ class Application:
             sign_model_status=status_for(self.settings.paths.models_dir, "sign"),
             lip_model_status=status_for(self.settings.paths.models_dir, "lip"),
             speech_enabled=self.settings.output.speech_enabled,
-            last_message=None,
+            last_message=(
+                "speech enabled but espeak-ng not on PATH — output disabled"
+                if self.settings.output.speech_enabled and not self._speech.available
+                else None
+            ),
             last_recognition=None,
             inference_latency_ms=(self._last_decision or {}).get("latency_ms") if self._last_decision else None,
             timestamp=_now(),

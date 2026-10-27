@@ -21,7 +21,7 @@ def status(app: AppDep) -> RecognitionStatus:
         lip_model=st.lip_model_status,
         frames_processed=app.frames_processed,
         last_decision=last,
-        latency_ms=last.get("confidence") if last else None,
+        latency_ms=last.get("latency_ms") if last else None,
     )
 
 
