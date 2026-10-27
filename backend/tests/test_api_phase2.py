@@ -267,8 +267,8 @@ def test_training_lip_modality_not_implemented(client: TestClient):
     r = client.post(
         "/api/v1/training/jobs", json={"modality": "lip", "dataset": "default"}
     )
-    assert r.status_code == 501
-    assert "Phase 6" in r.json()["detail"]
+    assert r.status_code == 409
+    assert "No job was created." in r.json()["detail"]
     assert client.get("/api/v1/training/jobs").json() == []
 
 

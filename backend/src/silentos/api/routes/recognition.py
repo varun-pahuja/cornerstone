@@ -13,14 +13,15 @@ router = APIRouter(prefix="/api/v1/recognition", tags=["recognition"])
 @router.get("/status", response_model=RecognitionStatus)
 def status(app: AppDep) -> RecognitionStatus:
     st = app.app_status()
+    last = app.last_decision_view()
     return RecognitionStatus(
         runtime_state=st.runtime_state,
         mode=st.recognition_mode,
         sign_model=st.sign_model_status,
         lip_model=st.lip_model_status,
         frames_processed=app.frames_processed,
-        last_decision=None,
-        latency_ms=None,
+        last_decision=last,
+        latency_ms=last.get("confidence") if last else None,
     )
 
 

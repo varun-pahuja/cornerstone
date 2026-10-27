@@ -6,6 +6,8 @@ import logging
 import platform
 import shutil
 import socket
+import threading
+import time
 from datetime import datetime, timezone
 
 import psutil
@@ -22,6 +24,7 @@ from .schemas import (  # noqa: F401  (re-exported for routes)
     RuntimeState,
     SystemMetrics,
 )
+from .fusion import FusionEngine, FusionPolicy, FusionWeights
 
 
 logger = logging.getLogger("silentos")
@@ -46,6 +49,182 @@ class Application:
         # Prime the CPU counter so the first reported value is a real measurement
         # over the process lifetime, not a fabricated zero.
         psutil.cpu_percent(interval=None)
+        # Fusion + live recognizers (Phase 7)
+        self._fusion_engine: FusionEngine | None = None
+        self._sign_recognizer = None
+        self._lip_recognizer = None
+        self._last_decision = None
+        self._recognition_thread: threading.Thread | None = None
+        self._recognition_stop = threading.Event()
+        self._recognition_lock = threading.Lock()
+
+    # ---- recognition lifecycle ----
+
+    def start_recognition(self) -> str | None:
+        """Returns an error detail, or None on success."""
+        if self.runtime_state == RuntimeState.RUNNING:
+            return None  # already running, idempotent
+
+        from .registry import status_for as _sf
+        sign_status = _sf(self.settings.paths.models_dir, "sign")
+        lip_status = _sf(self.settings.paths.models_dir, "lip")
+        if sign_status.value == "NOT_TRAINED" and lip_status.value == "NOT_TRAINED":
+            return (
+                "No trained models on disk yet — record clips in Dataset Studio and "
+                "train a sign model in Training Center. No state change was made."
+            )
+
+        # Build recognizers lazily (only for trained modalities)
+        from .sign.pipeline import SignRecognizer
+        from .lip.pipeline import LipRecognizer
+        models_dir = self.settings.paths.models_dir
+        sign_model_path = models_dir / "sign" / "model.npz"
+        lip_model_path = models_dir / "lip" / "model.npz"
+
+        if sign_status.value != "NOT_TRAINED" and sign_model_path.is_file():
+            try:
+                self._sign_recognizer = SignRecognizer(sign_model_path)
+            except Exception as e:
+                logger.warning("Sign recognizer init failed: %s", e)
+                self._sign_recognizer = None
+        if lip_status.value != "NOT_TRAINED" and lip_model_path.is_file():
+            try:
+                self._lip_recognizer = LipRecognizer(lip_model_path)
+            except Exception as e:
+                logger.warning("Lip recognizer init failed: %s", e)
+                self._lip_recognizer = None
+
+        if self._sign_recognizer is None and self._lip_recognizer is None:
+            return (
+                "No trained models on disk yet — record clips in Dataset Studio and "
+                "train a sign model in Training Center. No state change was made."
+            )
+
+        # Build fusion engine from settings
+        fus_cfg = self.settings.fusion
+        rec_cfg = self.settings.recognition
+        policy = FusionPolicy(
+            min_confidence=rec_cfg.min_confidence,
+            sign_threshold=fus_cfg.sign_threshold,
+            lip_threshold=fus_cfg.lip_threshold,
+            allow_single_modality=fus_cfg.allow_single_modality,
+        )
+        weights = FusionWeights(sign=0.6, lip=0.4)  # TODO: make configurable
+        self._fusion_engine = FusionEngine(weights=weights, policy=policy)
+
+        self._recognition_stop.clear()
+        self._recognition_thread = threading.Thread(
+            target=self._recognition_loop, name="recognition", daemon=True
+        )
+        self._recognition_thread.start()
+        self.runtime_state = RuntimeState.RUNNING
+        self.last_error = None
+        logger.info("Recognition runtime started (mode=%s)", rec_cfg.mode)
+        return None
+
+    def stop_recognition(self) -> str | None:
+        if self.runtime_state != RuntimeState.RUNNING:
+            return None  # already stopped
+        self._recognition_stop.set()
+        if self._recognition_thread and self._recognition_thread.is_alive():
+            self._recognition_thread.join(timeout=5)
+        self._recognition_thread = None
+        self.runtime_state = RuntimeState.STOPPED
+        if self._sign_recognizer:
+            self._sign_recognizer.reset()
+        if self._lip_recognizer:
+            self._lip_recognizer.reset()
+        logger.info("Recognition runtime stopped")
+        return None
+
+    def _recognition_loop(self) -> None:
+        """Main loop: pull frames from camera, run modality pipelines, fuse."""
+        interval_s = self.settings.recognition.inference_interval_ms / 1000.0
+        mode = self.settings.recognition.mode
+        while not self._recognition_stop.is_set():
+            frame = self.camera.latest_frame()
+            if frame is None:
+                self._recognition_stop.wait(interval_s)
+                continue
+
+            t0 = time.monotonic()
+            sign_pred = None
+            lip_pred = None
+            if mode in ("sign", "both") and self._sign_recognizer is not None:
+                label, conf, _ = self._sign_recognizer.predict_frame(frame.image)
+                if label is not None and conf is not None:
+                    sign_pred = {"label": label, "confidence": conf}
+            if mode in ("lip", "both") and self._lip_recognizer is not None:
+                label, conf, _ = self._lip_recognizer.predict_frame(frame.image)
+                if label is not None and conf is not None:
+                    lip_pred = {"label": label, "confidence": conf}
+
+            latency_ms = (time.monotonic() - t0) * 1000.0
+
+            if sign_pred is None and lip_pred is None:
+                self.frames_processed += 1
+                self._recognition_stop.wait(interval_s)
+                continue
+
+            decision = self._fusion_engine.fuse(sign_pred, lip_pred)
+            self.frames_processed += 1
+            if not decision.abstained and decision.label is not None:
+                self.db.add_history(
+                    mode=mode,
+                    sign_label=sign_pred["label"] if sign_pred else None,
+                    sign_confidence=sign_pred["confidence"] if sign_pred else None,
+                    lip_label=lip_pred["label"] if lip_pred else None,
+                    lip_confidence=lip_pred["confidence"] if lip_pred else None,
+                    final_label=decision.label,
+                    accepted=True,
+                    reason=decision.reason,
+                    latency_ms=latency_ms,
+                )
+                self._last_decision = {
+                    "decision": decision,
+                    "sign": sign_pred,
+                    "lip": lip_pred,
+                    "latency_ms": latency_ms,
+                    "ts": _now(),
+                }
+
+            self._recognition_stop.wait(interval_s)
+
+    # ---- other methods unchanged below ----
+
+    def last_decision_view(self) -> dict | None:
+        """Schema-compatible view of the last fused decision, or None."""
+        raw = self._last_decision
+        if raw is None:
+            return None
+        dec = raw["decision"]
+
+        def _mod(pred: dict | None, modality: str) -> dict | None:
+            if pred is None:
+                return None
+            return {
+                "modality": modality,
+                "predicted_class": pred["label"],
+                "confidence": pred["confidence"],
+                "probabilities": None,
+                "timestamp": raw["ts"],
+                "model_version": None,
+                "processing_latency_ms": raw["latency_ms"],
+                "status": status_for(self.settings.paths.models_dir, modality),
+            }
+
+        return {
+            "final_label": dec.label or self.settings.vocabulary.abstain_label,
+            "accepted": not dec.abstained,
+            "reason": dec.reason,
+            "sign_prediction": _mod(raw["sign"], "sign"),
+            "lip_prediction": _mod(raw["lip"], "lip"),
+            "timestamp": raw["ts"],
+            "schema_version": "1",
+            "confidence": dec.confidence,
+            "sources": dec.sources,
+            "scores": dec.scores,
+        }
 
     def app_status(self) -> AppStatus:
         return AppStatus(
@@ -58,7 +237,7 @@ class Application:
             speech_enabled=self.settings.output.speech_enabled,
             last_message=None,
             last_recognition=None,
-            inference_latency_ms=None,
+            inference_latency_ms=(self._last_decision or {}).get("latency_ms") if self._last_decision else None,
             timestamp=_now(),
         )
 
@@ -177,25 +356,6 @@ class Application:
         # Everything in overrides is in effect after a restart.
         self._pending_restart = []
 
-    # ---- recognition lifecycle (honest until Phase 3) ----
-
-    def start_recognition(self) -> str | None:
-        """Returns an error detail, or None on success."""
-        # Camera exists (Phase 3) and sign training is live (Phase 5); the live
-        # inference loop that consumes frames is not wired yet (Phases 5–7).
-        from .registry import status_for as _sf
-        sign = _sf(self.settings.paths.models_dir, "sign")
-        lip = _sf(self.settings.paths.models_dir, "lip")
-        if sign.value == "NOT_TRAINED" and lip.value == "NOT_TRAINED":
-            return (
-                "No trained models on disk yet — record clips in Dataset Studio and "
-                "train a sign model in Training Center. No state change was made."
-            )
-        return (
-            "Sign live inference is not wired into the recognition runtime yet "
-            "(Phase 5–7 integration). No state change was made."
-        )
-
     def reconcile_stale_jobs(self) -> int:
         """Jobs left QUEUED/RUNNING by a dead process can never continue.
 
@@ -238,8 +398,6 @@ class Application:
 
     def shutdown(self) -> None:
         """Lifespan teardown: release camera and close DB."""
+        self.stop_recognition()
         self.camera.stop()
         self.db.close()
-
-    def stop_recognition(self) -> str | None:
-        return None  # already STOPPED; stopping a stopped runtime is a no-op
