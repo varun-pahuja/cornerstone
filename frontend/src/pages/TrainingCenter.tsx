@@ -31,12 +31,17 @@ const statusTone = (s: string) =>
 type CurvePoint = { epoch: number; loss: number | null; accuracy: number | null };
 
 /**
- * Parses ONLY what the backend actually logged — structured epoch records or
- * "epoch 3/40 loss=1.2345 acc=0.4500" lines. Zero matches → empty chart state.
+ * Parses ONLY what the backend actually logged — log rows are `{ts, line}` records;
+ * accepts their "epoch 3/40 loss=1.2345 acc=0.4500" lines or structured
+ * `{epoch, loss, accuracy}` objects. Zero matches → empty chart state.
  */
 function parseCurve(logs: unknown[]): CurvePoint[] {
   const pts: CurvePoint[] = [];
-  for (const entry of logs) {
+  for (const raw of logs) {
+    const entry =
+      raw && typeof raw === "object" && !Array.isArray(raw) && "line" in raw
+        ? (raw as { line?: unknown }).line
+        : raw;
     if (entry && typeof entry === "object" && !Array.isArray(entry)) {
       const o = entry as Record<string, unknown>;
       if (typeof o.epoch === "number") {
@@ -54,13 +59,33 @@ function parseCurve(logs: unknown[]): CurvePoint[] {
       }
     }
     if (typeof entry === "string") {
-      const m = /epoch\s+(\d+)\/\d+\s+loss=([\d.]+)\s+acc(?:uracy)?=([\d.]+)/.exec(entry);
+      // worker logs "epoch 3/40 loss=1.2345" (accuracy only when a run logs it)
+      const m = /epoch\s+(\d+)\/(\d+)\s+loss=([\d.]+)(?:\s+acc(?:uracy)?=([\d.]+))?/.exec(entry);
       if (m) {
-        pts.push({ epoch: Number(m[1]), loss: Number(m[2]), accuracy: Number(m[3]) });
+        pts.push({
+          epoch: Number(m[1]),
+          loss: Number(m[3]),
+          accuracy: m[4] !== undefined ? Number(m[4]) : null,
+        });
       }
     }
   }
   return pts;
+}
+
+/** Extract displayable text lines from `{ts, line}` records (or raw strings). */
+function logText(logs: unknown[]): string[] {
+  return logs.flatMap((l) => {
+    if (typeof l === "string") return [l];
+    if (l && typeof l === "object" && !Array.isArray(l) && "line" in l) {
+      const line = (l as { line?: unknown }).line;
+      if (typeof line === "string") {
+        const ts = (l as { ts?: unknown }).ts;
+        return [typeof ts === "string" ? `${ts}  ${line}` : line];
+      }
+    }
+    return [];
+  });
 }
 
 /** metrics may nest (e.g. evaluation.accuracy) — flatten one level for cells. */
@@ -117,7 +142,7 @@ function JobDetail({ jobId }: { jobId: number }) {
   const job = detail.data?.job;
   const logs = detail.data?.logs ?? [];
   const curve = parseCurve(logs);
-  const stringLogs = logs.filter((l): l is string => typeof l === "string");
+  const textLogs = logText(logs);
   const metrics = job?.metrics ? flattenMetrics(job.metrics) : [];
   const mappable = metrics.filter(
     ([, v]) => typeof v === "number" || typeof v === "string" || typeof v === "boolean" || v === null,
@@ -220,9 +245,9 @@ function JobDetail({ jobId }: { jobId: number }) {
 
         <div>
           <p className="label mb-2">Log tail</p>
-          {stringLogs.length > 0 ? (
+          {textLogs.length > 0 ? (
             <pre className="data max-h-[420px] overflow-y-auto rounded-sm border border-line bg-rail p-3 text-[11.5px] leading-relaxed whitespace-pre-wrap text-ink-soft">
-              {stringLogs.slice(-40).join("\n")}
+              {textLogs.slice(-40).join("\n")}
             </pre>
           ) : (
             <p className="text-[12.5px] text-ink-faint">

@@ -140,7 +140,7 @@ def test_recognition_status_honest_initial(client: TestClient):
 def test_recognition_start_rejected_until_models_trained(client: TestClient):
     r = client.post("/api/v1/recognition/start")
     assert r.status_code == 503
-    assert "Phases 5" in r.json()["detail"]  # honest: models not trained yet
+    assert "Training Center" in r.json()["detail"]  # honest: train first (Phase 5 live)
     # state unchanged
     assert client.get("/api/v1/recognition/status").json()["runtime_state"] == "STOPPED"
 
@@ -252,14 +252,44 @@ def test_dataset_stats_count_real_files(client: TestClient, paths):
 # ---- training ----
 
 
-def test_training_no_jobs_and_create_rejected(client: TestClient):
+def test_training_create_rejected_without_dataset(client: TestClient):
     assert client.get("/api/v1/training/jobs").json() == []
     r = client.post(
         "/api/v1/training/jobs", json={"modality": "sign", "dataset": "default"}
     )
+    # Phase 5: precheck runs BEFORE any row exists (dataset/splits/clips)
     assert r.status_code == 409
-    assert "Phase 5" in r.json()["detail"]
+    assert "No job was created" in r.json()["detail"]
     assert client.get("/api/v1/training/jobs").json() == []  # still no fake job
+
+
+def test_training_lip_modality_not_implemented(client: TestClient):
+    r = client.post(
+        "/api/v1/training/jobs", json={"modality": "lip", "dataset": "default"}
+    )
+    assert r.status_code == 501
+    assert "Phase 6" in r.json()["detail"]
+    assert client.get("/api/v1/training/jobs").json() == []
+
+
+def test_training_config_validated(client: TestClient):
+    unknown = client.post(
+        "/api/v1/training/jobs",
+        json={"modality": "sign", "dataset": "x", "config": {"bogus": 1}},
+    )
+    assert unknown.status_code == 400
+    assert "bogus" in unknown.json()["detail"]
+    bad_epochs = client.post(
+        "/api/v1/training/jobs",
+        json={"modality": "sign", "dataset": "x", "config": {"epochs": 0}},
+    )
+    assert bad_epochs.status_code == 400
+    bad_lr = client.post(
+        "/api/v1/training/jobs",
+        json={"modality": "sign", "dataset": "x", "config": {"lr": -1}},
+    )
+    assert bad_lr.status_code == 400
+    assert client.get("/api/v1/training/jobs").json() == []
 
 
 def test_training_job_listing_and_cancel(client: TestClient):

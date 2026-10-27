@@ -144,20 +144,17 @@ class LogisticBaseline:
 
         self._check()
         d, k = self.W.shape
-        std = helper.make_node("Div", ["X", "sigma"], ["Xs1"], name="divide_sigma")
-        sub = helper.make_node("Sub", ["Xs1", "mu"], ["Xs"], name="subtract_mean")
+        # standardize exactly like predict_proba: (X - mu) / sigma
+        sub = helper.make_node("Sub", ["X", "mu"], ["Xs0"], name="subtract_mean")
+        div = helper.make_node("Div", ["Xs0", "sigma"], ["Xs"], name="divide_sigma")
         matmul = helper.make_node("MatMul", ["Xs", "W"], ["logits0"], name="matmul")
         add = helper.make_node("Add", ["logits0", "b"], ["logits"], name="add_bias")
         sm = helper.make_node("Softmax", ["logits"], ["probs"], axis=-1, name="softmax")
         graph = helper.make_graph(
-            nodes=[std, sub, matmul, add, sm],
+            nodes=[sub, div, matmul, add, sm],
             name="silentos_sign_baseline",
             inputs=[
                 helper.make_tensor_value_info("X", TensorProto.FLOAT, [1, d]),
-                helper.make_tensor_value_info("sigma", TensorProto.FLOAT, [d]),
-                helper.make_tensor_value_info("mu", TensorProto.FLOAT, [d]),
-                helper.make_tensor_value_info("W", TensorProto.FLOAT, [d, k]),
-                helper.make_tensor_value_info("b", TensorProto.FLOAT, [k]),
             ],
             outputs=[helper.make_tensor_value_info("probs", TensorProto.FLOAT, [1, k])],
             initializer=[

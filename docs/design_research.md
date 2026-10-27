@@ -205,3 +205,34 @@ Consistency risk 2 → **16** (execute fully).
 - Fake charts for CPU/memory: the backend reports point-in-time metrics only — sparklines
   would imply a history that does not exist. Charts appear only for real training curves
   parsed from job logs.
+
+## Component integration (as shipped)
+
+Verified with `npm run lint` (0 errors), `tsc --noEmit`, `vite build`, and Playwright
+screenshots of all 9 routes at 1920/1280/1024/390 (chromium, local dev server).
+
+- **Shell** (`components/layout/AppShell.tsx`): grouped nav (Console / Intelligence / System) with
+  active inset-primary indicator, typographic `SilentOS` wordmark (13.5px ≤1023px, 17px ≥1024px),
+  connection footer (10s `/health` poll: online / backend offline / checking), top bar with
+  section breadcrumb + runtime-state badge + hostname, `max-w-[1480px]` main, `Toaster` + `TooltipProvider` mounted once.
+- **Shared blocks**: `PageHeader` (Newsreader 27px title + description + status/actions),
+  `Card`/`Row`/`Empty`/`LoadError`/`MetricCell`, `StatusBadge` (uppercase mono + dot, tones
+  ok/warn/danger/info/primary/neutral — never color alone), `FramePreview` (400ms JPEG poll of
+  `/api/v1/camera/frame.jpg`, honest "no signal" state, no placeholder imagery).
+- **shadcn (base-nova, `@base-ui/react`)**: source kept in `src/components/ui/`; actively used —
+  `sonner` Toaster (global), `tooltip` provider; `tabs/dialog/select/switch/slider/table/progress/
+  skeleton/button` installed and available. Library fast-refresh warnings (button/tabs constant
+  exports) left as upstream, non-blocking.
+- **recharts**: one real use — Training Center loss/accuracy curves parsed from backend job logs
+  (`parseCurve` accepts `epoch n/m loss=… acc=…` lines or `{epoch, loss, accuracy}` records).
+  Zero parsed points → honest "No curve data" state, never an invented chart.
+- **Pages (all 9)**: Overview (runtime/camera/latest-recognition/readiness/real meters/recent),
+  Live Vision (preview + framing chrome + three honest recognition lanes + timeline + side rail),
+  AI Lab (evaluation MetricCells + real confusion matrices + label chips), Training Center
+  (epoch stepper, job detail, dataset select from real `/datasets`, lip disabled "Phase 6"),
+  Dataset Studio (user's wiring preserved; restyled only), History/Calibration/DeviceSettings/
+  SystemHealth via PageHeader + tokens.
+- **Token compatibility**: legacy `--color-paper` alias added (inputs/hover tints in pre-existing
+  pages); `--color-accent` stays the subtle #1c2025 hover tint (brand color is `--color-primary`).
+- **Honesty rules kept**: Unavailable = null, no fake charts/thumbnails/scores, empty states name
+  the reason, backend error messages surfaced verbatim.

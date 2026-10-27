@@ -181,19 +181,41 @@ class Application:
 
     def start_recognition(self) -> str | None:
         """Returns an error detail, or None on success."""
-        # Camera exists now (Phase 3); the pipeline needs trained models (Phase 5+).
+        # Camera exists (Phase 3) and sign training is live (Phase 5); the live
+        # inference loop that consumes frames is not wired yet (Phases 5–7).
         from .registry import status_for as _sf
         sign = _sf(self.settings.paths.models_dir, "sign")
         lip = _sf(self.settings.paths.models_dir, "lip")
         if sign.value == "NOT_TRAINED" and lip.value == "NOT_TRAINED":
             return (
-                "No trained models on disk yet — sign/silent-lip training arrives "
-                "in Phases 5–6. Start the camera from Live Vision in the meantime."
+                "No trained models on disk yet — record clips in Dataset Studio and "
+                "train a sign model in Training Center. No state change was made."
             )
         return (
-            "Recognition pipeline not implemented yet (inference arrives in "
-            "Phases 5–7). No state change was made."
+            "Sign live inference is not wired into the recognition runtime yet "
+            "(Phase 5–7 integration). No state change was made."
         )
+
+    def reconcile_stale_jobs(self) -> int:
+        """Jobs left QUEUED/RUNNING by a dead process can never continue.
+
+        Marked FAILED at startup so the dashboard never shows a phantom run.
+        """
+        stale = [
+            row
+            for row in self.db.list_jobs(limit=5000)
+            if row["status"] in ("QUEUED", "RUNNING")
+        ]
+        for row in stale:
+            self.db.update_job(
+                row["id"], status="FAILED", error="Interrupted by process restart"
+            )
+        if stale:
+            logger.warning(
+                "Reconciled %d stale training job(s) from a previous process",
+                len(stale),
+            )
+        return len(stale)
 
     def camera_kwargs(self) -> dict:
         """Provider kwargs from current settings."""

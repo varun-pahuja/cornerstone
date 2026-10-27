@@ -1,8 +1,11 @@
 # SilentOS — Architecture
 
-Status: **Phases 1–4 (foundation + dashboard + camera + datasets) implemented.** This document describes the architecture as
+Status: **Phases 1–4 complete; Phase 5 sign training live (dataset → landmarks → baseline →
+export + training-jobs API with daemon worker, `{ts,line}` logs, cancellation, restart reconcile). Live sign
+inference in the recognition runtime is not wired yet (arrives with the Phase 5–7
+integration); silent-lip is Phase 6. 83 backend tests passing.** This document describes the architecture as
 built; sections marked *planned* are designed but not yet implemented. Last updated:
-2026-10-26.
+2026-10-27.
 
 ## System overview
 
@@ -15,8 +18,9 @@ Python FastAPI backend                       (backend/src/silentos/)
         │  Application controller (state owner, no model execution in handlers)
         ├── SQLite  (settings, recognition history, training jobs)
         ├── Camera providers        (camera/)      [Phase 3]
-        ├── Hand/mouth preprocessing (preprocessing/) [Phase 5/6]
-        ├── Sign + Lip inference     (recognition/) [Phase 5/6]
+        ├── Sign features+training  (sign/)        [Phase 5]
+        ├── Mouth preprocessing     (lip/)         [Phase 6]
+        ├── Sign + Lip inference     (recognition/) [Phase 5/6, runtime wiring pending]
         ├── Confidence fusion        (fusion/)      [Phase 7]
         └── Text/speech output       (output/)      [Phase 8]
         ▼
@@ -40,8 +44,10 @@ settings; recognition keeps running if the browser closes.
 | `camera/` | ✅ | Provider interface + 5 providers (mock, video_file, development_webcam, pi_camera, pi_usb_webcam), guarded Pi imports, `CameraManager` capture thread with bounded `deque(maxlen=1)` latest-frame buffer (stale frames dropped, `frames_dropped` counted). Live-verified against the physical webcam. See `docs/camera.md`. |
 | `dataset/` | ✅ | Validation (decode, duration 0.2–30 s, vocabulary, safe names), SHA-256 manifests, deterministic participant-based splits (no cross-split leakage, n<3 → train+warning), record-from-camera (bounded-buffer reads), multipart import, register-in-root, zip export. See `docs/datasets.md`. |
 | `registry.py` | ✅ | Model manifest scan shared by `/models` and `app_status` — status derived from artifacts on disk (NOT_TRAINED / ERROR / NOT_LOADED), never assumed. |
-| `api/routes/{settings,models,recognition,camera,datasets,training,diagnostics}.py` | ✅ | Phase 2 endpoints: validated settings PUT with persisted overrides + restart reporting; honest model status; history CRUD; real V4L2 discovery (`/sys/class/video4linux`); dataset stats counted from disk; training create rejected (409) until Phase 5; runtime dependency probes. |
-| camera, preprocessing, recognition, fusion, output, dataset, training | 🚧 planned Phases 3–8 | |
+| `sign/` | ✅ | Phase 5: MediaPipe `HandExtractor` (guarded imports, VIDEO-mode timestamps), wrist-relative + scale-invariant features (2016-dim, 32-frame resample), seed-deterministic `LogisticBaseline` (npz + ONNX export `(X−μ)/σ`, parity-tested), `train_sign` with honest per-split evaluation, `validate_request` shared precheck, `SignRecognizer` buffer. |
+| `api/routes/training.py` | ✅ | Phase 5 job API: strict config validation (400, allowed keys `seed,epochs,lr,l2`), one-job lock (409), lip → 501 "Phase 6. No job was created.", dataset precheck **before** any row exists (409 + "No job was created."), 201 `{job}` create, daemon worker with per-epoch progress + `{ts,line}` logs, user cancellation observed per epoch, trainer failures stored as FAILED errors, flat metrics JSON; `Application.reconcile_stale_jobs()` runs at startup (stale QUEUED/RUNNING → FAILED "Interrupted by process restart"). |
+| `api/routes/{settings,models,recognition,camera,datasets,diagnostics}.py` | ✅ | Phase 2 endpoints: validated settings PUT with persisted overrides + restart reporting; honest model status; history CRUD; real V4L2 discovery (`/sys/class/video4linux`); dataset stats counted from disk; runtime dependency probes. |
+| lip, recognition runtime, fusion, output | 🚧 planned Phases 6–8 | |
 
 Security as built: binds `127.0.0.1` by default; no shell-execution endpoints; filesystem
 access will be restricted to configured directories (validated identifiers, not raw paths).
@@ -50,11 +56,11 @@ access will be restricted to configured directories (validated identifiers, not 
 
 | Piece | Status | Notes |
 |---|---|---|
-| Stack | ✅ | React 19, Vite 8, TypeScript 6 (strict, `erasableSyntaxOnly`), Tailwind CSS 4 (token theme), react-router 7, lucide-react, recharts (installed, awaiting real data). |
-| Design system | ✅ | "Industrial Utilitarian" tokens in `styles/globals.css` (`@theme`); components use token utilities only. Research: `docs/design_research.md`. |
-| App shell | ✅ | Dark nav rail with 9 routes, active-page indicator, responsive (icon-only < `md`), connection pill polling `/health` every 10 s. |
+| Stack | ✅ | React 19, Vite 8, TypeScript 6 (strict, `erasableSyntaxOnly`), Tailwind CSS 4 (token theme), react-router 7, lucide-react, recharts (real training curves from job logs). |
+| Design system | ✅ | "Obsidian Instrument" (dark, Newsreader + IBM Plex, single teal accent) tokens in `styles/globals.css`; fonts bundled offline; shadcn (base-nova) installed. Research + integration record: `docs/design_research.md`. |
+| App shell | ✅ | Grouped nav (Console / Intelligence / System) with active indicator, top bar (breadcrumb + runtime badge + host), responsive icon rail < `lg`, connection footer polling `/health` every 10 s, global Toaster/TooltipProvider. |
 | Typed API client | ✅ | `services/api.ts` — single fetch boundary, 10 s timeout, typed `ApiError`. |
-| Pages | ✅ | All 9 pages are real: Overview, Live Vision (source list + honest disconnected preview), AI Lab (model registry + fusion readout), Dataset Studio (disk-counted stats), Training Center (jobs + honest 409 create), History (paginated DB rows + clear), Calibration (honest "not implemented" + config defaults), Device Settings (validated PUT + restart banner), System Health (metrics + dependency probes). Shared `usePoll` hook + `Card`/`Row` components. |
+| Pages | ✅ | All 9 redesigned: Overview (runtime/camera/recognition/readiness/meters/recent), Live Vision (preview + honest recognition lanes + timeline + side rail), AI Lab (real evaluation metrics + confusion matrices), Training Center (job list, epoch stepper, log-driven loss curves, dataset picker), Dataset Studio (disk-counted stats + record/import/validate/splits), History (paginated DB rows + clear), Calibration (honest "not implemented" + config defaults), Device Settings (validated PUT + restart banner), System Health (metrics + dependency probes). Verified via Playwright at 1920/1280/1024/390. |
 | Live events | 🚧 | WebSocket client planned with the backend WS endpoint (bounded queue, reconnect). |
 
 ## Data flow (planned, Phase 3+)

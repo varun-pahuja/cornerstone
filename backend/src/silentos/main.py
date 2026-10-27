@@ -37,6 +37,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info("SilentOS %s starting (env=%s)", __version__, settings.app.env)
+        app.state.application.reconcile_stale_jobs()
         yield
         app.state.application.shutdown()
         logger.info("SilentOS shutdown complete")
@@ -54,6 +55,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_origins=[
             "http://localhost:5173",
             "http://127.0.0.1:5173",
+            "http://localhost:5174",
+            "http://127.0.0.1:5174",
         ],
         allow_credentials=True,
         allow_methods=["*"],
