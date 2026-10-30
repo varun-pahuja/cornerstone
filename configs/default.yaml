@@ -24,8 +24,9 @@ vocabulary:
     - WATER
     - FOOD
     - PAIN
-    - YES
-    - NO
+    # quoted: bare YES/NO are YAML 1.1 booleans and fail Settings validation
+    - "YES"
+    - "NO"
     - STOP
     - DOCTOR
     - TOILET

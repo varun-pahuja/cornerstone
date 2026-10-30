@@ -1,0 +1,49 @@
+{
+  "environment_report": {
+    "python": "3.13.16",
+    "platform": "Linux-6.6.159+-x86_64-with-glibc2.39",
+    "numpy": "2.1.3",
+    "opencv": "5.0.0",
+    "mediapipe": "1.2.0",
+    "onnx": "1.23.2",
+    "onnxruntime": "1.31.1",
+    "pydantic": "2.14.1",
+    "ram_total_gb": 13.6,
+    "ram_available_gb": 12.0,
+    "cpus": 1,
+    "gpu": "Tesla T4, 15360 MiB"
+  },
+  "train_seconds": 190.0,
+  "model_version": "ae19271b2b19",
+  "dataset": "isl40 (vidit031/isl-isolated-40words @ 255ce7fd10da5d05bc30d59668ba256e5f02531c)",
+  "trained_at_utc": "2026-10-30T18:08:20Z",
+  "mediapipe_gate": {
+    "steps": {
+      "1": {
+        "ok": true,
+        "cumulative_extractions": 1,
+        "seconds_in_step": 0.184,
+        "hands_detected_in_step": 0
+      },
+      "2": {
+        "ok": true,
+        "cumulative_extractions": 2,
+        "seconds_in_step": 0.038,
+        "hands_detected_in_step": 0
+      },
+      "4": {
+        "ok": true,
+        "cumulative_extractions": 4,
+        "seconds_in_step": 0.064,
+        "hands_detected_in_step": 0
+      }
+    },
+    "status": "PASSED",
+    "extractions_total": 4,
+    "delegate": "cpu",
+    "rss_mb": 1015,
+    "task_file": "models/assets/hand_landmarker.task",
+    "clip": "food__ISL500__00084__Food__session108__clip023.mp4",
+    "total_seconds": 0.287
+  }
+}

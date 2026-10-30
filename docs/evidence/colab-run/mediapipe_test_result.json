@@ -1,0 +1,29 @@
+{
+  "steps": {
+    "1": {
+      "ok": true,
+      "cumulative_extractions": 1,
+      "seconds_in_step": 0.184,
+      "hands_detected_in_step": 0
+    },
+    "2": {
+      "ok": true,
+      "cumulative_extractions": 2,
+      "seconds_in_step": 0.038,
+      "hands_detected_in_step": 0
+    },
+    "4": {
+      "ok": true,
+      "cumulative_extractions": 4,
+      "seconds_in_step": 0.064,
+      "hands_detected_in_step": 0
+    }
+  },
+  "status": "PASSED",
+  "extractions_total": 4,
+  "delegate": "cpu",
+  "rss_mb": 1015,
+  "task_file": "models/assets/hand_landmarker.task",
+  "clip": "food__ISL500__00084__Food__session108__clip023.mp4",
+  "total_seconds": 0.287
+}

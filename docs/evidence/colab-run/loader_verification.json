@@ -1,0 +1,197 @@
+{
+  "model_version": "ae19271b2b19",
+  "loader_labels": [
+    "FOOD",
+    "HELP",
+    "NO",
+    "STOP",
+    "THANK YOU",
+    "WATER",
+    "YES"
+  ],
+  "clip": "raw/User001/isl500/food__ISL500__00084__Food__session108__clip023.mp4",
+  "clip_true_label": "FOOD",
+  "frames_read": 163,
+  "predictions": [
+    {
+      "frame": 51,
+      "label": "FOOD",
+      "confidence": 0.9998
+    },
+    {
+      "frame": 52,
+      "label": "FOOD",
+      "confidence": 0.9999
+    },
+    {
+      "frame": 53,
+      "label": "FOOD",
+      "confidence": 0.9999
+    },
+    {
+      "frame": 54,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 55,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 56,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 57,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 58,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 59,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 60,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 61,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 62,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 63,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 64,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 65,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 66,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 67,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 68,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 69,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 70,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 71,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 72,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 73,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 74,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 75,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 76,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 77,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 78,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 79,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 80,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 81,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 82,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 83,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 84,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 85,
+      "label": "FOOD",
+      "confidence": 1.0
+    },
+    {
+      "frame": 86,
+      "label": "FOOD",
+      "confidence": 1.0
+    }
+  ]
+}

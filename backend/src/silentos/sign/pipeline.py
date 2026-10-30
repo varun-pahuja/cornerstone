@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from .features import MIN_FRAMES, sequence_to_features
-from .landmarks import HandExtractor
+from .landmarks import HAND_MODEL_NAME, HandExtractor
 from .model import LogisticBaseline
 
 logger = logging.getLogger("silentos.sign")
@@ -33,7 +33,13 @@ class SignRecognizer:
     ):
         self._model_path = Path(model_path)
         self._model: LogisticBaseline | None = None
-        self._extractor = extractor
+        # Default to the landmark extractor next to the model (models/assets/).
+        # HandExtractor construction does no I/O, so a missing asset still
+        # surfaces at the first frame with a clear error instead of silently
+        # abstaining forever.
+        self._extractor = extractor or HandExtractor(
+            self._model_path.parent.parent / "assets" / HAND_MODEL_NAME
+        )
         self._floor = confidence_floor
         self._buffer: deque[np.ndarray] = deque(maxlen=BUFFER_LEN)
         self._model_version: str | None = None

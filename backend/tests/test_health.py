@@ -80,3 +80,17 @@ def test_load_settings_missing_file_raises(tmp_path):
 
     with pytest.raises(FileNotFoundError):
         load_settings(tmp_path / "nope.yaml")
+
+
+def test_repo_default_config_loads_with_string_labels():
+    """configs/default.yaml must load: bare YES/NO are YAML booleans, not labels."""
+    from pathlib import Path
+
+    from silentos.config import DEFAULT_VOCABULARY, load_settings
+
+    cfg = Path(__file__).resolve().parents[2] / "configs" / "default.yaml"
+    if not cfg.is_file():
+        pytest.skip("repo configs/ not present")
+    s = load_settings(cfg)
+    assert s.vocabulary.labels == DEFAULT_VOCABULARY
+    assert all(isinstance(v, str) for v in s.vocabulary.labels)

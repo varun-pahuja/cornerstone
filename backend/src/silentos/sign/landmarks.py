@@ -9,6 +9,7 @@ through sys.modules) — that is the import style used here.
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 import numpy as np
@@ -17,6 +18,18 @@ logger = logging.getLogger("silentos.sign")
 
 NUM_LANDMARKS = 21
 HAND_MODEL_NAME = "hand_landmarker.task"
+
+# GPU first by default: the CPU delegate is killed (SIGKILL) on the dev host.
+# Colab/headless hosts have no EGL, and the GPU delegate aborts the whole
+# process inside create_from_options() — a C++ LOG(FATAL) Python cannot catch,
+# so the CPU-only path must be selectable. Set SILENTOS_MEDIAPIPE_DELEGATE=cpu.
+DELEGATE_ENV = "SILENTOS_MEDIAPIPE_DELEGATE"
+
+
+def delegate_order() -> tuple[str, ...]:
+    if os.environ.get(DELEGATE_ENV, "").strip().lower() == "cpu":
+        return ("cpu",)
+    return ("gpu", "cpu")
 
 
 class LandmarkUnavailable(Exception):
@@ -52,23 +65,19 @@ class HandExtractor:
             raise LandmarkUnavailable(
                 f"mediapipe is not importable: {e}"
             ) from e
-        # CPU (XNNPACK) delegate is killed (SIGKILL) on this host by an
-        # unidentified external process; GPU delegate is the only working path.
         # ponytail: GPU delegate unproven for sustained multi-frame loops on
-        # this host and unverified on Raspberry Pi 4 target.
-        delegate = None
-        try:
-            delegate = BaseOptions.Delegate.GPU
-        except Exception:  # noqa: BLE001
-            delegate = None
+        # the dev host and unverified on Raspberry Pi 4 target.
         last_error: Exception | None = None
-        for use_gpu in (True, False):
-            if use_gpu and delegate is None:
-                continue
-            base_opts = BaseOptions(
-                model_asset_path=str(self._model_path),
-                **({"delegate": delegate} if use_gpu and delegate is not None else {}),
-            )
+        for name in delegate_order():
+            base_opts = BaseOptions(model_asset_path=str(self._model_path))
+            if name == "gpu":
+                try:
+                    base_opts = BaseOptions(
+                        model_asset_path=str(self._model_path),
+                        delegate=BaseOptions.Delegate.GPU,
+                    )
+                except Exception:  # noqa: BLE001
+                    continue
             options = HandLandmarkerOptions(
                 base_options=base_opts,
                 running_mode=RunningMode.VIDEO,
@@ -78,7 +87,7 @@ class HandExtractor:
             )
             try:
                 self._landmarker = HandLandmarker.create_from_options(options)
-                self._delegate = "gpu" if use_gpu else "cpu"
+                self._delegate = name
                 return self._landmarker
             except Exception as e:  # noqa: BLE001
                 last_error = e

@@ -467,3 +467,20 @@ def test_reconcile_marks_stale_jobs_failed(client):
     job = app.db.get_job(job_id)
     assert job["status"] == "FAILED"
     assert "restart" in job["error"]
+
+
+def test_recognizer_builds_extractor_by_default(tmp_path):
+    """The production recognizer must never be constructible without a
+    landmark source: application.py builds it with only a model path, and a
+    silent None extractor made predict_frame abstain forever."""
+    from silentos.sign.landmarks import HandExtractor
+    from silentos.sign.pipeline import SignRecognizer
+
+    model = tmp_path / "models" / "sign" / "model.npz"
+    model.parent.mkdir(parents=True)
+    rec = SignRecognizer(model)
+    assert isinstance(rec._extractor, HandExtractor)
+    assert rec._extractor._model_path == tmp_path / "models" / "assets" / "hand_landmarker.task"
+
+    sentinel = object()
+    assert SignRecognizer(model, extractor=sentinel)._extractor is sentinel

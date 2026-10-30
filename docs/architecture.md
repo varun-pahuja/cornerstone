@@ -1,8 +1,8 @@
 # SilentOS — Architecture
 
-Status: **All Phases 1–9 complete. Sign + lip training live, live recognition runtime wired (camera → sign/lip pipelines → `FusionEngine` → history + speech), calibration API (honest not-calibrated + shortfall semantics), Raspberry Pi 4 deployment guide shipped. 102 backend tests passing.** This document describes the architecture as
+Status: **All Phases 1–9 complete. Sign + lip training live, live recognition runtime wired (camera → sign/lip pipelines → `FusionEngine` → history + speech), calibration API (honest not-calibrated + shortfall semantics), Raspberry Pi 4 deployment guide shipped. 104 backend tests passing (verified 2026-10-30). Phase 10 (real data + first genuine model) is ACTIVE and BLOCKED on a MediaPipe landmark-extraction SIGKILL — see `TODO.md` T-ML-01 and `docs/implementation_status.md`.** This document describes the architecture as
 built; sections marked *planned* are designed but not yet implemented. Last updated:
-2026-10-27.
+2026-10-30.
 
 ## System overview
 
@@ -86,8 +86,10 @@ labelling, training, inference, fusion and the dashboard; validation enforces un
 
 ## Testing
 
-- Backend: pytest (`.venv`), `backend/tests/` — currently 5 passing tests covering health,
-  status honesty (no fabricated values), metrics reality, settings validation, config errors.
+- Backend: pytest (`.venv`), `backend/tests/` — 104 passing tests covering health,
+  status honesty (no fabricated values), metrics reality, settings validation, config
+  errors, camera, dataset, sign/lip training (with injected extractors), fusion,
+  speech, calibration (verified 2026-10-30).
 - Frontend: `tsc -b` type-check + `oxlint` clean + `vite build` all pass.
 - Integration/hardware tests: planned (Phases 3+); hardware tests will be a separate suite.
 

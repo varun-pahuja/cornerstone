@@ -1,6 +1,11 @@
 # SilentOS Phase Todo
 
-Updated: 2026-10-28
+> **Superseded as the task registry by `/TODO.md` (created 2026-10-30).** This file
+> remains the phase-history checklist. The 30-area audit lives in
+> `docs/implementation_status.md`. Checkbox states below were reconciled against the
+> working tree on 2026-10-30.
+
+Updated: 2026-10-30
 
 ## Phase 1 — Foundation
 - [x] Project structure, configs, schemas, DB (SQLite)
@@ -56,7 +61,7 @@ Updated: 2026-10-28
 - [x] `test_calibration.py` (4 tests)
 - [x] `docs/deployment_raspberry_pi.md` — full Pi 4 deployment guide
 
-### Phases 1–9 code-complete: 102 backend tests passing.
+### Phases 1–9 code-complete: 104 backend tests passing (verified 2026-10-30).
 ### ⚠ HONEST STATE: `models/sign/` and `models/lip/` are EMPTY — no model has been
 ### trained on real data yet. The 102 tests validate code paths, not accuracy.
 
@@ -88,16 +93,19 @@ is processed, training completes, and evaluation runs.
   all `unique`, 617 `accepted` / 25 `Needs Manual Review`)
 - [x] Target mapping verified: HELP 16, WATER 18, FOOD 17, YES 17, NO 17, STOP 4,
   THANK YOU 39 → **7/10 present**; **PAIN, DOCTOR, TOILET MISSING**
-- [ ] Download target-class clips via HF tooling (outside Git)
-- [ ] Coverage report written (per-class × source × license)
-- [ ] Reproducible dataset manifest (revision SHA)
+- [x] Download target-class clips via HF tooling (outside Git) — 128 clips, `data/external/`
+- [x] Coverage report written (per-class × source × license) — `docs/isl40_coverage.md`
+- [x] Reproducible dataset manifest (revision SHA `255ce7fd…`) — `data/manifests/isl40.json`
 
 ### 10c. Real-data ingestion path
-- [ ] Dedicated adapter: source video + original label → mapped SilentOS label +
-  ClipRecord manifest (preserves source, license, duration, frames, status/errors)
-- [ ] Actual validation: corrupt clips, missing labels, duplicates, unsupported
-  video, per-class counts
-- [ ] Participant-aware splits (signer/source as participant) or documented limit
+- [x] Dedicated adapter: source video + original label → mapped SilentOS label +
+  ClipRecord manifest (preserves source, license, duration, frames, status/errors) —
+  `scripts/ingest_isl.py`
+- [x] Actual validation: 128/128 `probe_clip` pass, 0 errors, sha256 spot-checked 8/8,
+  disk↔metadata 128/128 (recorded in `docs/isl40_coverage.md`)
+- [x] Participant-aware splits: ISL500 real signers held out; identity-less sources
+  pinned train-only (`pin` in `assign_splits`) — documented limitation: STOP has 0
+  test support
 
 ### 10d. Train first real sign model
 - [ ] Train LogisticBaseline on real mapped data (deterministic seed)
@@ -132,6 +140,9 @@ is processed, training completes, and evaluation runs.
 ### 10i. Colab (only if laptop environment blocked)
 - [ ] Reproducible notebook using the SAME repo training code (no notebook-only
   pipeline); verifiable artifact download
+  — **notebook implemented 2026-10-30** (`training/notebooks/silentos_first_training.ipynb`,
+  local-safe cells executed green); checkbox stays open until a real Colab run
+  completes the gate → train → artifact → loader chain
 
 ### 10j. Acceptance criteria
 - [ ] Real dataset lawfully accessed
