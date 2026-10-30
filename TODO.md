@@ -60,7 +60,7 @@ Full verification for phases 1–9: `.venv/bin/python -m pytest backend/tests -q
 - **Next diagnostic (no root):** run a 60 s non-MediaPipe compute loop (numpy + onnxruntime + plain cv2 decode). Survives → killer targets MediaPipe path → T-ML-10 workaround viable. Dies → host-wide watchdog, local inference impossible.
 | T-ML-05 | Train first real sign model on isl40 (seed 42) | **COMPLETE (via T-ML-09)** | T-ML-09 | artifacts in `models/sign/` (`model.npz`, `model.onnx`, `manifest.json`, version `ae19271b2b19`); per-class metrics + confusion matrix in `docs/evidence/colab-run/evaluation.json` | training route → `models/sign/*` | manifest metrics | local route still blocked by T-ML-01 |
 | T-ML-06 | Load artifact via production `SignRecognizer` + held-out eval | **COMPLETE (2026-10-30)** | T-ML-05 | loader accepts manifest, vocabulary = SilentOS labels, real held-out predictions recorded | `sign/pipeline.py` | Colab loader cell: 36 predictions on a test clip (true FOOD, 27 ms/frame) + `loader_verification.json` | local run blocked by T-ML-01 |
-| T-ML-07 | Live recognition E2E with real video source | BLOCKED | T-ML-06 | camera → fusion → history with real model; latency/memory recorded | `application.py` loop | manual run, `/api/v1/recognition/status` | T-ML-06 |
+| T-ML-07 | Live recognition E2E with real video source | **PENDING HARDWARE/ENVIRONMENT** | T-ML-06 | camera → fusion → history with real model; latency/memory recorded | `application.py` loop | manual run, `/api/v1/recognition/status` | code path complete; live run impossible on dev host (T-ML-01); frontend never displayed a real prediction |
 | T-ML-08 | Stale training job #1 reconciliation | **COMPLETE (2026-10-30)** | next backend startup | job 1 = FAILED "Interrupted by process restart" | `data/silentos.db` | startup log "Reconciled 1 stale training job(s)" | verified via app lifespan + sqlite select |
 | T-ML-09 | Google Colab notebook (same repo training code) | **COMPLETE (2026-10-30)** | T-ML-01 investigation | run result: MediaPipe gate PASSED on CPU (4/4 extractions) | `training/notebooks/silentos_first_training.ipynb` | `docs/evidence/colab-run/` | trained `ae19271b2b19`: 126/128 clips, train acc 1.00, val acc 0.833, **test acc 0.944 (17/18), macro-F1 0.808** (0.943 over the 6 classes with test support); STOP has 0 test support; artifacts installed in `models/sign/` |
 | T-ML-11 | `SignRecognizer` built without a landmark extractor (silent no-op) | **COMPLETE (2026-10-30)** | T-ML-09 loader verification | `pipeline.py` defaults to `models/assets/hand_landmarker.task`; regression test added | `backend/src/silentos/sign/pipeline.py`, `backend/tests/test_sign.py` | 105 tests pass | was found in both `application.py` and the notebook: live recognition would have abstained forever |
@@ -78,6 +78,28 @@ Full verification for phases 1–9: `.venv/bin/python -m pytest backend/tests -q
 | ID | Task | Status | Depends on |
 |---|---|---|---|
 | T-ACC-01 | Phase 10 acceptance checklist | BLOCKED | T-ML-07 | **re-scoped 2026-10-30: 7-word vocabulary, no Pi, no lip** |
+
+---
+
+## Phase 11 — Silent-lip model (audit complete, plan in review)
+
+Full audit, defects and dataset plan: `docs/lip_phase.md`. Vocabulary stays at 7
+words (no PAIN/DOCTOR/TOILET). Sign model is not retrained or modified.
+
+| ID | Task | Status | Depends on | Acceptance |
+|---|---|---|---|---|
+| T-LIP-00 | Sign-phase verification snapshot | **COMPLETE (2026-10-31)** | — | hashes/loader/ONNX/tests/frontend build recorded in `docs/lip_phase.md` |
+| T-FUS-02 | Sign-only path under default config (D5) | NOT_STARTED | policy decision | sign predictions accepted when no lip model exists; tests |
+| T-LIP-01 | FaceExtractor delegate + env switch (D1) | NOT_STARTED | — | CPU-only mode on headless/Colab; no EGL abort |
+| T-LIP-02 | LipRecognizer default extractor (D2) | NOT_STARTED | — | no silent no-op; regression test |
+| T-LIP-03 | Correct lip manifest metadata + parity tests (D3, D6) | NOT_STARTED | — | `input_shape [1,45888]`, 478 landmarks, `lip_v1`, ONNX parity test |
+| T-LIP-04 | Approve collection protocol | **IN_REVIEW** | user sign-off | protocol in `docs/lip_phase.md` §2 approved |
+| T-LIP-05 | Record lip dataset (7 words) | NOT_STARTED | T-LIP-04 | quotas met; real consented clips only |
+| T-LIP-06 | QC + participant-independent splits | NOT_STARTED | T-LIP-05 | QC report; zero participant overlap |
+| T-LIP-07 | Colab lip training | NOT_STARTED | T-LIP-01..03, T-LIP-06 | gate passes; `models/lip/` artifacts |
+| T-LIP-08 | Independent lip evaluation report | NOT_STARTED | T-LIP-07 | per-class metrics + confusion, no fusion |
+| T-LIP-09 | Fusion enablement | NOT_STARTED | T-LIP-08 | §3 criteria met; sign-only still works |
+| T-LIP-10 | Live lip E2E | BLOCKED | T-ML-01 / hardware | real camera + real predictions |
 
 ---
 
@@ -110,7 +132,7 @@ T-ML-01 (MediaPipe SIGKILL root cause)
           ├─ MediaPipe OK in Colab → train there with repo code → T-ML-05
           └─ MediaPipe fails → T-ML-10 (alternative backend, parity preserved)
 T-DATA-03 (PAIN/DOCTOR/TOILET collection) ──→ full 10-class model (parallel track)
-T-DATA-04 (lip dataset) ──→ lip model (parallel, after T-ML-01 resolved)
+T-LIP-04..09 (lip phase) ──→ lip model, independent eval, then fusion   [plan: docs/lip_phase.md]
 T-HW-* — all blocked on hardware, independent of software except T-HW-03
 ```
 
