@@ -79,11 +79,26 @@ def _evaluate(model, X: np.ndarray, y: np.ndarray) -> dict[str, Any]:
     for truth, hat in zip(y, y_hat, strict=True):
         conf[idx[truth], idx[hat]] += 1
         correct += truth == hat
+    per_class: dict[str, dict[str, Any]] = {}
+    for i, c in enumerate(model.classes):
+        tp = int(conf[i, i])
+        fp = int(conf[:, i].sum() - tp)
+        fn = int(conf[i, :].sum() - tp)
+        precision = tp / (tp + fp) if tp + fp else 0.0
+        recall = tp / (tp + fn) if tp + fn else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+        per_class[c] = {
+            "precision": round(precision, 4),
+            "recall": round(recall, 4),
+            "f1": round(f1, 4),
+            "support": tp + fn,
+        }
     return {
         "accuracy": round(correct / len(y), 4),
         "macro_f1": round(_macro_f1(conf), 4),
         "support": int(len(y)),
         "confusion_matrix": conf.tolist(),
+        "per_class": per_class,
     }
 
 

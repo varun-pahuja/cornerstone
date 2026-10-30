@@ -1,6 +1,6 @@
 # SilentOS — Architecture
 
-Status: **Phases 1–8 complete; Phase 5 sign training live + Phase 6 silent-lip training live + Phase 7 live recognition runtime wired + Phase 8 speech output (`SpeechEngine` speaks accepted fused labels when enabled, honest espeak-ng unavailable detection). Calibration/deploy is Phase 9. 98 backend tests passing.** This document describes the architecture as
+Status: **All Phases 1–9 complete. Sign + lip training live, live recognition runtime wired (camera → sign/lip pipelines → `FusionEngine` → history + speech), calibration API (honest not-calibrated + shortfall semantics), Raspberry Pi 4 deployment guide shipped. 102 backend tests passing.** This document describes the architecture as
 built; sections marked *planned* are designed but not yet implemented. Last updated:
 2026-10-27.
 
@@ -48,7 +48,8 @@ settings; recognition keeps running if the browser closes.
 | `lip/` | ✅ | Phase 6: MediaPipe `FaceLandmarker` (guarded imports), lip features (478×3 → normalized 32-frame, 45888-dim), seed-deterministic `LogisticBaseline` (npz + ONNX), `train_lip` with honest evaluation, `LipRecognizer` buffer. |
 | `fusion/` | ✅ | Phase 7: `FusionEngine` + `fuse_predictions` (weighted confidence, agreement boost, abstain below `min_confidence`), `FusionPolicy`/`FusionWeights`. |
 | `output/` | ✅ | Phase 8: `SpeechEngine` (espeak-ng wrapper, cooldown, thread-safe) + `speak_decision`; wired into recognition loop; honest unavailable detection. |
-| recognition runtime, calibration | 🚧 planned Phase 9 | Live loop + speech wired; calibration/deploy pending. |
+| `calibration/` | ✅ | Phase 9: `CalibrationEngine` + `compute_profile` (honest shortfall, 25th-percentile tuning from real history); `/api/v1/calibration/profile` + `/apply`. |
+| deployment | ✅ | `docs/deployment_raspberry_pi.md` — full Pi 4 guide (deps, venv, models, camera, systemd, offline verification). |
 
 Security as built: binds `127.0.0.1` by default; no shell-execution endpoints; filesystem
 access will be restricted to configured directories (validated identifiers, not raw paths).

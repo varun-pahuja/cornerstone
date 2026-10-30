@@ -304,6 +304,10 @@ def test_train_sign_end_to_end(sign_dataset, tmp_path):
     ev = result["evaluation"]
     assert ev["train"]["accuracy"] >= 0.75          # real, computed
     assert ev["train"]["confusion_matrix"] == [[2, 0], [0, 2]]
+    assert ev["train"]["per_class"] == {
+        "FOOD": {"precision": 1.0, "recall": 1.0, "f1": 1.0, "support": 2},
+        "WATER": {"precision": 1.0, "recall": 1.0, "f1": 1.0, "support": 2},
+    }
     assert isinstance(ev["val"], dict) and "accuracy" in ev["val"]
     assert ev["test"] is None                        # honestly absent
     assert ev["clips_skipped"] == []

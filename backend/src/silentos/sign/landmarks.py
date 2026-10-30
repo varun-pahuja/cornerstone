@@ -35,6 +35,7 @@ class HandExtractor:
         self._num_hands = num_hands
         self._landmarker = None
         self._timestamp_ms = 0
+        self._delegate: str | None = None
 
     def _ensure(self):
         if self._landmarker is not None:
@@ -51,18 +52,40 @@ class HandExtractor:
             raise LandmarkUnavailable(
                 f"mediapipe is not importable: {e}"
             ) from e
-        options = HandLandmarkerOptions(
-            base_options=BaseOptions(model_asset_path=str(self._model_path)),
-            running_mode=RunningMode.VIDEO,
-            num_hands=self._num_hands,
-            min_hand_detection_confidence=0.5,
-            min_tracking_confidence=0.5,
-        )
+        # CPU (XNNPACK) delegate is killed (SIGKILL) on this host by an
+        # unidentified external process; GPU delegate is the only working path.
+        # ponytail: GPU delegate unproven for sustained multi-frame loops on
+        # this host and unverified on Raspberry Pi 4 target.
+        delegate = None
         try:
-            self._landmarker = HandLandmarker.create_from_options(options)
-        except Exception as e:  # noqa: BLE001 — surface task creation errors honestly
-            raise LandmarkUnavailable(f"Hand landmarker failed to initialize: {e}") from e
-        return self._landmarker
+            delegate = BaseOptions.Delegate.GPU
+        except Exception:  # noqa: BLE001
+            delegate = None
+        last_error: Exception | None = None
+        for use_gpu in (True, False):
+            if use_gpu and delegate is None:
+                continue
+            base_opts = BaseOptions(
+                model_asset_path=str(self._model_path),
+                **({"delegate": delegate} if use_gpu and delegate is not None else {}),
+            )
+            options = HandLandmarkerOptions(
+                base_options=base_opts,
+                running_mode=RunningMode.VIDEO,
+                num_hands=self._num_hands,
+                min_hand_detection_confidence=0.5,
+                min_tracking_confidence=0.5,
+            )
+            try:
+                self._landmarker = HandLandmarker.create_from_options(options)
+                self._delegate = "gpu" if use_gpu else "cpu"
+                return self._landmarker
+            except Exception as e:  # noqa: BLE001
+                last_error = e
+                self._landmarker = None
+        raise LandmarkUnavailable(
+            f"Hand landmarker failed to initialize: {last_error}"
+        ) from last_error
 
     def extract(self, frame_bgr: np.ndarray) -> np.ndarray | None:
         """Return (21, 3) landmarks for the first detected hand, or None."""

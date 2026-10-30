@@ -149,6 +149,28 @@ def test_splits_reject_bad_ratios():
         assign_splits(["a", "b", "c"], seed=1, train_ratio=0.7, val_ratio=0.3)
 
 
+def test_splits_pin_forces_participants_and_shuffles_rest():
+    people = ["u1", "u2", "u3", "u4", "u5", "src_x"]
+    a1, _ = assign_splits(
+        people, seed=42, train_ratio=0.6, val_ratio=0.2, pin={"src_x": "train"}
+    )
+    assert a1["src_x"] == "train"
+    free = [p for p in people if p != "src_x"]
+    assert all(p in a1 for p in free)
+    assert {a1[p] for p in free} == {"train", "val", "test"}
+    # pinned stays train regardless of seed/order
+    a2, _ = assign_splits(
+        list(reversed(people)), seed=99, train_ratio=0.6, val_ratio=0.2,
+        pin={"src_x": "train"},
+    )
+    assert a2["src_x"] == "train"
+    # unknown pinned participant or bad split name is rejected
+    with pytest.raises(ValueError, match="not in the participant list"):
+        assign_splits(people, seed=1, train_ratio=0.7, val_ratio=0.15, pin={"ghost": "train"})
+    with pytest.raises(ValueError, match="is not one of"):
+        assign_splits(people, seed=1, train_ratio=0.7, val_ratio=0.15, pin={"src_x": "holdout"})
+
+
 def test_apply_splits_updates_manifest_and_writes_file(tmp_path):
     manifests = tmp_path / "manifests"
     data = tmp_path / "data"

@@ -102,12 +102,14 @@ def _flat_metrics(manifest: dict) -> dict:
         "final_loss": ev.get("final_loss"),
         "train_accuracy": train.get("accuracy"),
         "train_macro_f1": train.get("macro_f1"),
+        "train_per_class": train.get("per_class"),
     }
     for split in ("val", "test"):
         block = ev.get(split)
         if isinstance(block, dict) and "accuracy" in block:
             metrics[f"{split}_accuracy"] = block["accuracy"]
             metrics[f"{split}_macro_f1"] = block.get("macro_f1")
+            metrics[f"{split}_per_class"] = block.get("per_class")
     return metrics
 
 

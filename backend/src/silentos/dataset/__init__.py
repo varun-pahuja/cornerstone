@@ -209,38 +209,54 @@ def assign_splits(
     seed: int,
     train_ratio: float,
     val_ratio: float,
+    pin: dict[str, str] | None = None,
 ) -> tuple[dict[str, str], list[str]]:
-    """Pure function: (participants, seed, ratios) -> {participant: split}, warnings.
+    """Pure function: (participants, seed, ratios, pin) -> {participant: split}, warnings.
 
     Each participant lands in exactly one split. Assignment is a seeded shuffle
     of the sorted participant list, so the same inputs always give the same
     result. Test ratio is 1 - train - val.
+
+    `pin` forces named participants to a split before shuffling (e.g. sources
+    without real signer identity stay train-only so val/test remain
+    participant-held-out); ratios apply to the remaining free participants.
     """
     warnings: list[str] = []
     parts = sorted(set(participants))
-    n = len(parts)
-    if n == 0:
-        return {}, ["no participants to split"]
     if train_ratio + val_ratio >= 1.0:
         raise ValueError("train_ratio + val_ratio must be < 1.0")
+    assignment: dict[str, str] = {}
+    for p, s in (pin or {}).items():
+        if s not in SPLIT_NAMES:
+            raise ValueError(f"pinned split '{s}' is not one of {SPLIT_NAMES}")
+        if p not in parts:
+            raise ValueError(f"pinned participant '{p}' is not in the participant list")
+        assignment[p] = s
+    free = [p for p in parts if p not in assignment]
+    n = len(free)
+    if n == 0:
+        if assignment:
+            warnings.append("all participants pinned; shuffle pool is empty")
+            return assignment, warnings
+        return {}, ["no participants to split"]
     if n < 3:
-        # not enough participants for three non-empty splits — all go to train
+        # not enough free participants for three non-empty splits — all go to train
         warnings.append(
-            f"only {n} participant(s): all assigned to train; record more participants "
-            "for val/test splits"
+            f"only {n} free participant(s): all assigned to train; record more "
+            "participants for val/test splits"
         )
-        return {p: "train" for p in parts}, warnings
+        assignment.update({p: "train" for p in free})
+        return assignment, warnings
 
     rng = random.Random(seed)
-    rng.shuffle(parts)
+    rng.shuffle(free)
     n_train = max(1, round(n * train_ratio))
     n_val = max(1, round(n * val_ratio))
     if n_train + n_val >= n:  # leave at least one for test
         n_val = max(1, n - n_train - 1)
     if n_train + n_val >= n:
         n_train = n - 2
-    assignment: dict[str, str] = {}
-    for i, p in enumerate(parts):
+    for i, p in enumerate(free):
         if i < n_train:
             assignment[p] = "train"
         elif i < n_train + n_val:
@@ -257,16 +273,18 @@ def apply_splits(
     seed: int,
     train_ratio: float,
     val_ratio: float,
+    pin: dict[str, str] | None = None,
 ) -> SplitResult:
     m = load_manifest(manifest_path(manifests_dir, dataset_id))
     participants = sorted({c.participant_id for c in m.clips})
-    assignment, warnings = assign_splits(participants, seed, train_ratio, val_ratio)
+    assignment, warnings = assign_splits(participants, seed, train_ratio, val_ratio, pin=pin)
     for clip in m.clips:
         clip.split = assignment.get(clip.participant_id)
     m.splits = {
         "seed": seed,
         "ratios": {"train": train_ratio, "val": val_ratio, "test": round(1 - train_ratio - val_ratio, 4)},
         "participants": assignment,
+        "pin": pin or {},
         "generated_at": _now(),
     }
     save_manifest(manifests_dir, m)

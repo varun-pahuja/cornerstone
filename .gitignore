@@ -9,40 +9,63 @@ build/
 .mypy_cache/
 .ruff_cache/
 
-# Node
+# Node / frontend build caches
 node_modules/
 frontend/dist/
 frontend/.vite/
+.vite/
 
-# Environment
+# Environment & secrets (never commit real .env)
 .env
+.env.*
+!.env.example
 *.local
 
-# Data & models (large binaries, personal recordings, derived manifests/splits)
+# Data: runtime DB, recordings, manifests/splits, downloaded datasets
+# (data/external/ = third-party datasets fetched via HF tooling; keep out of Git)
 data/
 !data/**/README.md
-models/development/*
-models/deployment/*
-models/assets/*
+*.db
+*.sqlite
+*.sqlite3
+
+# Model artifacts (trained weights, exports, downloaded models)
+models/
 !models/**/README.md
 *.onnx
 *.tflite
 *.pt
 *.pth
+*.npz
+*.h5
+*.ckpt
+*.safetensors
+*.gguf
 
-# Recordings
+# Recordings & media
 *.mp4
 *.avi
 *.mov
 *.webm
-*.avi
 *.mkv
-*.webm
-!tests/fixtures/**/*.mp4
+*.m4v
+*.wav
+*.m4a
+!tests/fixtures/**
+
+# Hugging Face / downloader caches (if run inside repo)
+.cache/
+hf_cache/
+.huggingface/
 
 # Logs
 *.log
 logs/
+
+# Generated reports / evaluation outputs
+eval/
+reports/
+*.confusion.csv
 
 # OS
 .DS_Store

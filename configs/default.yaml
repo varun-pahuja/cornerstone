@@ -19,17 +19,18 @@ paths:
   splits_dir: ./data/splits
 
 vocabulary:
-  - HELP
-  - WATER
-  - FOOD
-  - PAIN
-  - YES
-  - NO
-  - STOP
-  - DOCTOR
-  - TOILET
-  - THANK YOU
-abstain_label: "PLEASE REPEAT"
+  labels:
+    - HELP
+    - WATER
+    - FOOD
+    - PAIN
+    - YES
+    - NO
+    - STOP
+    - DOCTOR
+    - TOILET
+    - THANK YOU
+  abstain_label: "PLEASE REPEAT"
 
 camera:
   provider: video_file   # video_file | mock | development_webcam | pi_camera | pi_usb_webcam

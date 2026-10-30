@@ -31,6 +31,7 @@ class FaceExtractor:
         self._num_faces = num_faces
         self._landmarker = None
         self._timestamp_ms = 0
+        self._delegate: str | None = None
 
     def _ensure(self):
         if self._landmarker is not None:
@@ -45,19 +46,40 @@ class FaceExtractor:
             from mediapipe.tasks.python.core.base_options import BaseOptions
         except ImportError as e:
             raise LandmarkUnavailable(f"mediapipe is not importable: {e}") from e
-        options = FaceLandmarkerOptions(
-            base_options=BaseOptions(model_asset_path=str(self._model_path)),
-            running_mode=RunningMode.VIDEO,
-            num_faces=self._num_faces,
-            min_face_detection_confidence=0.5,
-            min_face_presence_confidence=0.5,
-            min_tracking_confidence=0.5,
-        )
+        # CPU (XNNPACK) delegate is killed (SIGKILL) on this host; GPU delegate
+        # is the only working path. ponytail: sustained multi-frame GPU loop and
+        # Raspberry Pi 4 GPU delegate viability unverified.
+        delegate = None
         try:
-            self._landmarker = FaceLandmarker.create_from_options(options)
-        except Exception as e:  # noqa: BLE001
-            raise LandmarkUnavailable(f"Face landmarker failed to initialize: {e}") from e
-        return self._landmarker
+            delegate = BaseOptions.Delegate.GPU
+        except Exception:  # noqa: BLE001
+            delegate = None
+        last_error: Exception | None = None
+        for use_gpu in (True, False):
+            if use_gpu and delegate is None:
+                continue
+            base_opts = BaseOptions(
+                model_asset_path=str(self._model_path),
+                **({"delegate": delegate} if use_gpu and delegate is not None else {}),
+            )
+            options = FaceLandmarkerOptions(
+                base_options=base_opts,
+                running_mode=RunningMode.VIDEO,
+                num_faces=self._num_faces,
+                min_face_detection_confidence=0.5,
+                min_face_presence_confidence=0.5,
+                min_tracking_confidence=0.5,
+            )
+            try:
+                self._landmarker = FaceLandmarker.create_from_options(options)
+                self._delegate = "gpu" if use_gpu else "cpu"
+                return self._landmarker
+            except Exception as e:  # noqa: BLE001
+                last_error = e
+                self._landmarker = None
+        raise LandmarkUnavailable(
+            f"Face landmarker failed to initialize: {last_error}"
+        ) from last_error
 
     def extract(self, frame_bgr: np.ndarray) -> np.ndarray | None:
         """Return (478, 3) landmarks for the first detected face, or None."""
