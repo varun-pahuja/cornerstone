@@ -7,7 +7,7 @@ api:
   port: 8000
 
 camera:
-  provider: video_file
+  provider: development_webcam   # laptop webcam (device 0); Pi: pi_usb_webcam
   target_width: 640
   target_height: 480
   target_fps: 15

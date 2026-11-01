@@ -74,3 +74,36 @@ Consequences:
 - Colab CPU delegate works (gate passed, 126/128 clips trained, held-out test
   accuracy 0.944). Colab is the only known-good extraction host.
 - Root-cause work still requires root-level tracing (no sudo available).
+
+---
+
+## Addendum 2026-10-31 — kill is repetition-dependent; API guard shipped
+
+New measurements (all standalone `extract()` loops on the dev laptop, exit 137
+= SIGKILL, no dmesg / journalctl / systemd-oomd entry for any kill):
+
+| Workload | delegate | result |
+|---|---|---|
+| 1 real frame ×1 | gpu | survived |
+| 1 frame ×30, ×50, ×100 | gpu | **killed** (0/6 runs) |
+| 1 frame ×15 | gpu | survived 1/2, killed 1/2 — **threshold is racy (~15–50)** |
+| 1 frame ×30 | gpu, mediapipe 1.2.0 | killed |
+| 1 frame ×30 | gpu, numpy 2.1.3 | killed |
+| 1 frame ×30 | cpu, any count incl. ×1 | **always killed** (silent, no glog) |
+| black (no-hand) frames | gpu ×30 | killed — **detection is not required** |
+| same runs on Python 3.12 (clean venv) | cpu+gpu | killed — **not a cp314 wheel bug** |
+| training job in-process (uvicorn) | gpu | killed at ~1 s after `tensor.cc:425/426` ("Multiple writes to a Tensor… undefined behavior") — server dies |
+
+Ruled out as variables: mediapipe 1.1.1 vs 1.2.0, numpy 2.5.4 vs 2.1.3,
+Python 3.14 vs 3.12, delegate choice, frame content, kernel OOM (0 entries),
+systemd-oomd (inactive), journal/dmesg traces. The `tensor.cc` UB warning
+precedes every GPU kill.
+
+**Incident:** a first guard probe (10 extracts) false-passed — training started
+and SIGKILLed uvicorn again (job went RUNNING, server died within ~1 s).
+Calibrated probe now runs **100 extracts** in a child process (observed
+threshold 15–50), wired as T-ML-12: `POST /api/v1/training/jobs` → 409
+("…would take the server down with it. Use the Colab notebook. No job was
+created."), `POST /api/v1/recognition/start` → 503, both verified live with the
+server staying up. Because the threshold is racy, the probe is probabilistic —
+the hard guarantee is T-ML-13 (training worker in its own process).

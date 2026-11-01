@@ -59,8 +59,32 @@ class Application:
         self._recognition_thread: threading.Thread | None = None
         self._recognition_stop = threading.Event()
         self._recognition_lock = threading.Lock()
+        # T-ML-01 guard: cached child-process verdict on extraction survival
+        self._extraction_probe: tuple[bool, str] | None = None
+        self._extraction_probe_lock = threading.Lock()
 
     # ---- recognition lifecycle ----
+
+    def extraction_probe(self) -> tuple[bool, str]:
+        """Cached verdict: does landmark extraction survive on this host?
+
+        Probed once in a child process — a SIGKILL there must never take the
+        API server with it.
+        """
+        with self._extraction_probe_lock:
+            if self._extraction_probe is None:
+                from .sign.landmarks import HAND_MODEL_NAME
+                from .vision_gate import probe_extraction
+
+                self._extraction_probe = probe_extraction(
+                    self.settings.paths.raw_dir,
+                    self.settings.paths.assets_dir / HAND_MODEL_NAME,
+                )
+                ok, why = self._extraction_probe
+                logger.info(
+                    "Extraction probe: %s", "OK" if ok else f"FAILED — {why}"
+                )
+            return self._extraction_probe
 
     def start_recognition(self) -> str | None:
         """Returns an error detail, or None on success."""
@@ -74,6 +98,13 @@ class Application:
             return (
                 "No trained models on disk yet — record clips in Dataset Studio and "
                 "train a sign model in Training Center. No state change was made."
+            )
+
+        ok, why = self.extraction_probe()
+        if not ok:
+            return (
+                f"{why}. Recognition needs landmark extraction, so it cannot "
+                "start here. No state change was made."
             )
 
         # Build recognizers lazily (only for trained modalities)

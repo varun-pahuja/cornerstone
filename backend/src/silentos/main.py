@@ -10,8 +10,12 @@ import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from . import __version__
 from .api.routes.calibration import router as calibration_router
@@ -73,6 +77,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(datasets_router)
     app.include_router(training_router)
     app.include_router(diagnostics_router)
+
+    # Production: serve the built frontend from the same origin (npm run build
+    # → frontend/dist). Dev keeps using Vite on :5173 with its /api proxy;
+    # both paths register /api routes first, so the SPA catch-all below never
+    # shadows the API. BrowserRouter deep links fall through to index.html.
+    # ponytail: fixed repo-relative path; env override if packaging changes.
+    dist = Path(__file__).resolve().parents[3] / "frontend" / "dist"
+    if dist.is_dir():
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        async def spa(full_path: str) -> FileResponse:
+            candidate = dist / full_path
+            if full_path and candidate.is_file():
+                return FileResponse(candidate)
+            return FileResponse(dist / "index.html")
+
     return app
 
 

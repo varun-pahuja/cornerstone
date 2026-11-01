@@ -143,8 +143,15 @@ def sign_dataset(settings) -> Settings:
 
 
 @pytest.fixture
-def client(settings):
+def client(settings, monkeypatch):
     with TestClient(create_app(settings)) as c:
+        # These tests cover job lifecycle/cancellation/logs, not the extraction
+        # gate (that has its own tests in test_vision_gate.py). Stub a healthy
+        # host so they pass deterministically whether or not MediaPipe survives
+        # here (T-ML-01 kills it on the dev laptop).
+        monkeypatch.setattr(
+            c.app.state.application, "extraction_probe", lambda: (True, "")
+        )
         yield c
 
 

@@ -221,6 +221,15 @@ def create_job(app: AppDep, body: TrainingJobCreate) -> dict:
             validate_lip_request(app.settings, body.dataset)
         else:
             validate_sign_request(app.settings, body.dataset)
+        # Extraction runs inside this process during training; on hosts where
+        # MediaPipe is SIGKILLed (T-ML-01) that kill would take uvicorn down
+        # with it. The verdict comes from a child-process probe (cached).
+        ok, why = app.extraction_probe()
+        if not ok:
+            raise SignTrainingError(
+                f"{why} — training would take the server down with it. Use the "
+                "Colab notebook (training/notebooks/silentos_first_training.ipynb)"
+            )
     except (SignTrainingError, LipTrainingError) as e:
         _TRAINING_LOCK.release()
         raise HTTPException(status_code=409, detail=f"{e}. No job was created.") from e
